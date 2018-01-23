@@ -1,6 +1,7 @@
 
 import getWindow from 'get-window'
 import isBackward from 'selection-is-backward'
+import {IS_IOS} from '../constants/environment'
 
 /**
  * CSS overflow values that would cause scrolling.
@@ -49,7 +50,12 @@ function findScrollContainer(el) {
  * @param {Selection} selection
  */
 
+const IS_IOS_11 = IS_IOS && !!window.navigator.userAgent.match(/os 11_/i)
+
 function scrollToSelection(selection) {
+  console.log('scrollToSelection before')
+  if (IS_IOS_11) return
+  console.log('scrollToSelection after IS_IOS_11')
   if (!selection.anchorNode) return
 
   const window = getWindow(selection.anchorNode)
