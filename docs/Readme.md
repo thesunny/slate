@@ -67,3 +67,7 @@
 * [`slate-prop-types`](./reference/slate-prop-types/index.md)
 * [`slate-schema-violations`](./reference/slate-schema-violations/index.md)
 * [`slate-simulator`](./reference/slate-simulator/index.md)
+
+## Contributing
+
+* [Android Development Guide](./contributing/android-development-guide.md)
