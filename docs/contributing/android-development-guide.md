@@ -29,11 +29,23 @@ Download and install Android Studio from here
 
 [https://developer.android.com/studio/index.html](https://developer.android.com/studio/index.html)
 
-After you start downloading Android Studio by clicking the installation button on the web page, you should be redirected to an instruction page on how to **Install Android Studio**.
+Start downloading Android Studio by clicking the installation button on the web page. After clicking you will be redirected to an instruction page on how to **Install Android Studio**.
 
-The instructions page should contain both written instructions and a video. Note: The short video is an excellent and succinct method for completing the installation process.
+The instructions page contains both written instructions and a video. The short video is an excellent and succinct method for completing the installation process.
 
+Note: We used the default installation.
 
+### Notes:
+
+* Is the "Include Android Instant App support" necessary or was just accidental?
+* Make sure to include that they must download using the links in the error messages after starting
+* Make sure they install HAXM
+
+### Downloading Essentials
+
+By default, the easiest way to ensure you have the essentials is to start an Android Studio project
+
+![](../.gitbook/assets/image.png)
 
 ### Windows and Linux Issues
 
