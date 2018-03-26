@@ -15,3 +15,16 @@ To work on Slate with Android, we recommend using the official integrated develp
 
 ## Steps for Developing on Android
 
+
+
+## Setup
+
+### Download and Install Android Studio
+
+Download and install Android Studio from here
+
+<https://developer.android.com/studio/index.html>
+
+After you start downloading Android Studio by clicking the installation button on the web page, you should be redirected to an instruction page on how to **Install Android Studio**.
+
+The instructions page should contain both written instructions and a video. Note: The short video is an excellent and succinct method for completing the installation process.
