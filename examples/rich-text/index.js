@@ -87,6 +87,7 @@ class RichTextExample extends React.Component {
           {this.renderBlockButton('bulleted-list', 'format_list_bulleted')}
         </Toolbar>
         <Editor
+          ref={editor => (this.editor = editor)}
           spellCheck
           autoFocus
           placeholder="Enter some rich text..."
@@ -96,6 +97,21 @@ class RichTextExample extends React.Component {
           renderNode={this.renderNode}
           renderMark={this.renderMark}
         />
+        <div
+          style={{
+            whiteSpace: 'pre',
+            fontFamily: 'monospace',
+            fontSize: 18,
+            color: '#060',
+          }}
+        >
+          isComposing:{' '}
+          {this.editor
+            ? this.editor.state.isComposing ? 'true' : 'false'
+            : 'no ref'}
+          <br />
+          {JSON.stringify(this.state.value.document.nodes, null, 2)}
+        </div>
       </div>
     )
   }

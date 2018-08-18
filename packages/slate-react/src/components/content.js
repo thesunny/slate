@@ -92,6 +92,8 @@ class Content extends React.Component {
       this.onNativeSelectionChange
     )
 
+    console.warn('HAS_INPUT_EVENTS_LEVEL_2', HAS_INPUT_EVENTS_LEVEL_2)
+
     // COMPAT: Restrict scope of `beforeinput` to clients that support the
     // Input Events Level 2 spec, since they are preventable events.
     if (HAS_INPUT_EVENTS_LEVEL_2) {
@@ -171,6 +173,7 @@ class Content extends React.Component {
 
     const { startContainer, startOffset, endContainer, endOffset } = range
 
+    console.warn('updateSelection BEFORE UPDATE')
     // If the new range matches the current selection, there is nothing to fix.
     // COMPAT: The native `Range` object always has it's "start" first and "end"
     // last in the DOM. It has no concept of "backwards/forwards", so we have
@@ -189,6 +192,7 @@ class Content extends React.Component {
         return
       }
     }
+    console.warn('updateSelection AFTER UPDATE')
 
     // Otherwise, set the `isUpdatingSelection` flag and update the selection.
     this.tmp.isUpdatingSelection = true
@@ -363,6 +367,7 @@ class Content extends React.Component {
    */
 
   render() {
+    console.warn('Content#render')
     const { props } = this
     const {
       className,

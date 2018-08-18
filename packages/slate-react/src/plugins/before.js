@@ -6,10 +6,13 @@ import {
   IS_FIREFOX,
   IS_IE,
   IS_IOS,
+  IS_ANDROID,
   HAS_INPUT_EVENTS_LEVEL_2,
 } from 'slate-dev-environment'
 
 import findNode from '../utils/find-node'
+
+import { HAS_COMPOSITION } from './composition'
 
 /**
  * Debug.
@@ -29,6 +32,7 @@ function BeforePlugin() {
   let activeElement = null
   let compositionCount = 0
   let isComposing = false
+  let isStrictComposing = false // without waiting for next animation frame
   let isCopying = false
   let isDragging = false
 
@@ -41,6 +45,7 @@ function BeforePlugin() {
    */
 
   function onBeforeInput(event, change, editor) {
+    debug('onBeforeInput', { event })
     if (editor.props.readOnly) return true
 
     const isSynthetic = !!event.nativeEvent
@@ -50,7 +55,6 @@ function BeforePlugin() {
     // allowing React's synthetic polyfill, so we need to ignore synthetics.
     if (isSynthetic && HAS_INPUT_EVENTS_LEVEL_2) return true
 
-    debug('onBeforeInput', { event })
   }
 
   /**
@@ -128,6 +132,8 @@ function BeforePlugin() {
    */
 
   function onCompositionEnd(event, change, editor) {
+    isStrictComposing = false
+    editor.isStrictComposing = false
     const n = compositionCount
 
     // The `count` check here ensures that if another composition starts
@@ -159,6 +165,8 @@ function BeforePlugin() {
 
   function onCompositionStart(event, change, editor) {
     isComposing = true
+    isStrictComposing = true
+    editor.isStrictComposing = false
     compositionCount++
 
     // HACK: we need to re-render the editor here so that it will update its
@@ -362,7 +370,16 @@ function BeforePlugin() {
    */
 
   function onInput(event, change, editor) {
-    if (isComposing) return true
+    console.warn(`before#onInput`, {
+      isComposing,
+      compositionCount,
+      isBlurred: change.value.isBlurred,
+    })
+    // Because in Android 28, we need the `input` event that fires
+    // immediately after a `compositionEnd` to fire through. We use that
+    // to reconcile the DOM because during `compositionEnd` event, the DOM
+    // hasn't changed yet.
+    if (IS_ANDROID ? isStrictComposing : isComposing) return true
     if (change.value.isBlurred) return true
 
     debug('onInput', { event })
