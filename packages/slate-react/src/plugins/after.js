@@ -587,11 +587,10 @@ function AfterPlugin() {
 
     // debug('text', { textContent, text, isComposing: editor.state.isComposing })
 
-    console.log('old => new', JSON.stringify(textContent), JSON.stringify(text))
     // If the text is no different, abort.
     if (textContent == text) {
       console.log('SAME TEXT')
-      return onSelect2(target, change, editor)
+      return setSelectionFromDOM(target, change, editor)
     } else {
       console.log('DIFFERENT TEXT... UPDATING STATE')
     }
@@ -635,18 +634,14 @@ function AfterPlugin() {
     // Change the current value to have the leaf's text replaced.
     editor.change(change => {
       change.insertTextAtRange(entire, textContent, leaf.marks)
-      onSelect2(target, change, editor)
+      setSelectionFromDOM(target, change, editor)
       // .select(corrected)
     })
     console.warn('/onTextChange')
     return true
   }
 
-  function onSelect2(target, change, editor) {
-    // debug('onSelect2', { event })
-    // console.warn('onSelect')
-    // return
-
+  function setSelectionFromDOM(target, change, editor) {
     const window = getWindow(target)
     const { value } = change
     const { document } = value
@@ -979,7 +974,7 @@ function AfterPlugin() {
 
   function onSelect(event, change, editor) {
     debug('onSelect', { event })
-    return onSelect2(event.target, change, editor)
+    return setSelectionFromDOM(event.target, change, editor)
     // console.warn('onSelect')
     // return
 

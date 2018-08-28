@@ -15,25 +15,21 @@ const desktop = {
 let inputAfterCompositionEnd = false
 const api28 = {
   onInput(event, change, editor) {
-    console.warn('input', JSON.stringify(event, null, 2))
     inputAfterCompositionEnd = true
     return !editor.isStrictComposing
   },
   onCompositionUpdate() {
-    console.warn('update')
-    return false
+    return true
   },
   onCompositionEnd(target, change, editor, onTextChange) {
-    console.log('onCompositionEnd', {onTextChange})
     inputAfterCompositionEnd = false
     setTimeout(() => {
       if (inputAfterCompositionEnd) return
       onTextChange(target, change, editor, 'setTimeout(onCompositionEnd)')
-    }, 1000)
+    }, 20)
     return false
   },
   onSelect() {
-    console.warn('select')
     return !editor.state.isComposing
   }
 }
