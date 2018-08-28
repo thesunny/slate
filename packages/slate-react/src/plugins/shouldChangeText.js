@@ -12,18 +12,24 @@ const desktop = {
   },
 }
 
+let inputAfterCompositionEnd = false
 const api28 = {
   onInput(event, change, editor) {
-    console.warn('input')
+    console.warn('input', JSON.stringify(event, null, 2))
+    inputAfterCompositionEnd = true
     return !editor.isStrictComposing
   },
   onCompositionUpdate() {
     console.warn('update')
     return false
   },
-  onCompositionEnd() {
-    // console.warn('end')
-    // there is always an input event after the onCompositionEnd
+  onCompositionEnd(target, change, editor, onTextChange) {
+    console.log('onCompositionEnd', {onTextChange})
+    inputAfterCompositionEnd = false
+    setTimeout(() => {
+      if (inputAfterCompositionEnd) return
+      onTextChange(target, change, editor, 'setTimeout(onCompositionEnd)')
+    }, 1000)
     return false
   },
   onSelect() {
@@ -67,8 +73,8 @@ if (/Android 9/.test(userAgent)) {
 function wrapEvents(events) {
   const nextEvents = {}
   for (const key of Object.keys(events)) {
-    nextEvents[key] = function (event, change, editor) {
-      const result = events[key](event, change, editor)
+    nextEvents[key] = function (...args) {
+      const result = events[key](...args)
       console.log(key, result)
       return result
     }

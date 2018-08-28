@@ -643,11 +643,11 @@ function AfterPlugin() {
   }
 
   function onSelect2(target, change, editor) {
-    debug('onSelect2', { event })
+    // debug('onSelect2', { event })
     // console.warn('onSelect')
     // return
 
-    const window = getWindow(event.target)
+    const window = getWindow(target)
     const { value } = change
     const { document } = value
     const native = window.getSelection()
@@ -733,8 +733,15 @@ function AfterPlugin() {
   function onCompositionEnd(event, change, editor) {
     // return true
     debug('onCompositionEnd', { event })
-    console.warn('onCompositionEnd')
-    if (shouldChangeText.onCompositionEnd(event, change, editor)) {
+    console.warn('onCompositionEnd', { onTextChange })
+    if (
+      shouldChangeText.onCompositionEnd(
+        event.target,
+        change,
+        editor,
+        onTextChange
+      )
+    ) {
       return onTextChange(event.target, change, editor, 'onCompositionEnd')
     }
     return true
@@ -972,6 +979,7 @@ function AfterPlugin() {
 
   function onSelect(event, change, editor) {
     debug('onSelect', { event })
+    return onSelect2(event.target, change, editor)
     // console.warn('onSelect')
     // return
 
