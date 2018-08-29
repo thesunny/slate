@@ -2,7 +2,7 @@ import Debug from 'debug'
 import React from 'react'
 import Types from 'prop-types'
 import getWindow from 'get-window'
-import { IS_FIREFOX, HAS_INPUT_EVENTS_LEVEL_2 } from 'slate-dev-environment'
+import { IS_ANDROID, IS_FIREFOX, HAS_INPUT_EVENTS_LEVEL_2 } from 'slate-dev-environment'
 import logger from 'slate-dev-logger'
 import throttle from 'lodash/throttle'
 
@@ -143,6 +143,11 @@ class Content extends React.Component {
     const native = window.getSelection()
     const { rangeCount, anchorNode } = native
 
+    // If we are in the Android editor, we don't want the selection updated
+    // during a composition. This is because in Android we don't update the
+    // editor state until the composition ends.
+    if (IS_ANDROID && editor.isStrictComposing) return
+
     // If both selections are blurred, do nothing.
     if (!rangeCount && selection.isBlurred) return
 
@@ -173,7 +178,7 @@ class Content extends React.Component {
 
     const { startContainer, startOffset, endContainer, endOffset } = range
 
-    console.warn('updateSelection BEFORE UPDATE')
+    console.warn('updateSelection CHECK IF REQUIRES UPDATE')
     // If the new range matches the current selection, there is nothing to fix.
     // COMPAT: The native `Range` object always has it's "start" first and "end"
     // last in the DOM. It has no concept of "backwards/forwards", so we have
@@ -189,10 +194,11 @@ class Content extends React.Component {
           endContainer == current.startContainer &&
           endOffset == current.startOffset)
       ) {
+        console.warn('updateSelection NO UPDATE REQUIRED')
         return
       }
     }
-    console.warn('updateSelection AFTER UPDATE')
+    console.warn('updateSelection UPDATING SELECTION!')
 
     // Otherwise, set the `isUpdatingSelection` flag and update the selection.
     this.tmp.isUpdatingSelection = true

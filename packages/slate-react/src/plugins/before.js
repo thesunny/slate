@@ -54,7 +54,6 @@ function BeforePlugin() {
     // attached a custom handler for the real `beforeinput` events, instead of
     // allowing React's synthetic polyfill, so we need to ignore synthetics.
     if (isSynthetic && HAS_INPUT_EVENTS_LEVEL_2) return true
-
   }
 
   /**
@@ -139,7 +138,7 @@ function BeforePlugin() {
     // The `count` check here ensures that if another composition starts
     // before the timeout has closed out this one, we will abort unsetting the
     // `isComposing` flag, since a composition is still in affect.
-    !IS_ANDROID && window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
       if (compositionCount > n) return
       isComposing = false
 
@@ -166,7 +165,7 @@ function BeforePlugin() {
   function onCompositionStart(event, change, editor) {
     isComposing = true
     isStrictComposing = true
-    editor.isStrictComposing = false
+    editor.isStrictComposing = true
     compositionCount++
 
     // HACK: we need to re-render the editor here so that it will update its
@@ -370,16 +369,17 @@ function BeforePlugin() {
    */
 
   function onInput(event, change, editor) {
-    console.warn(`before#onInput`, {
-      isComposing,
-      compositionCount,
-      isBlurred: change.value.isBlurred,
-    })
-    // Because in Android 28, we need the `input` event that fires
-    // immediately after a `compositionEnd` to fire through. We use that
-    // to reconcile the DOM because during `compositionEnd` event, the DOM
-    // hasn't changed yet.
-    if (IS_ANDROID ? isStrictComposing : isComposing) return true
+    // In Android 28, we need the `input` event that fires immediately after a
+    // `compositionEnd` to fire through. This doesn't happen because the code
+    // below that we are still `isComposing`. This is because `isComposing`
+    // waits for a tick under normal circumstances. `isStrictComposing`
+    // is like `isComposing` but it doesn't wait for the tick.
+    //
+    // We use that to reconcile the DOM because at the `compositionEnd` event
+    // the DOM hasn't changed yet. It actually changes during the `input`
+    // event that fires after.
+    // if (IS_ANDROID ? isStrictComposing : isComposing) return true
+    if (isStrictComposing) return true
     if (change.value.isBlurred) return true
 
     debug('onInput', { event })
@@ -399,7 +399,9 @@ function BeforePlugin() {
     // When composing, we need to prevent all hotkeys from executing while
     // typing. However, certain characters also move the selection before
     // we're able to handle it, so prevent their default behavior.
-    if (isComposing) {
+    //
+    // The failure case is hitting the `enter` key in API28.
+    if (IS_ANDROID ? isStrictComposing : isComposing) {
       if (Hotkeys.isCompose(event)) event.preventDefault()
       return true
     }

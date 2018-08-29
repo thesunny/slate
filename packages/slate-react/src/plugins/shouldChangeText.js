@@ -1,25 +1,36 @@
-
 // Appears to work on Chrome
 const desktop = {
+  // should we resolve on this input
   onInput() {
     return true
   },
+  // should we resolve before the onKeyDown event is handled?
+  onKeyDown() {
+    return false
+  },
+  // should we resolve on the compositionUpdate?
   onCompositionUpdate() {
     return false
   },
+  // should we resolve on the compositionEnd?
   onCompositionEnd() {
     return false
   },
 }
 
+let changeAfterCompositionUpdate = false
 let inputAfterCompositionEnd = false
 const api28 = {
-  onInput(event, change, editor) {
+  onKeyDown(target, change, editor, onTextChange) {
+    return !editor.isStrictComposing
+  },
+  onInput(target, change, editor) {
     inputAfterCompositionEnd = true
     return !editor.isStrictComposing
   },
-  onCompositionUpdate() {
-    return true
+  onCompositionUpdate(target, change, editor, onTextChange) {
+    changeAfterCompositionUpdate = true
+    return false
   },
   onCompositionEnd(target, change, editor, onTextChange) {
     inputAfterCompositionEnd = false
@@ -29,29 +40,19 @@ const api28 = {
     }, 20)
     return false
   },
-  onSelect() {
-    return !editor.state.isComposing
-  }
 }
 
 const api27 = {
-  onInput(event, change, editor) {
-    console.warn('input', 'isComposing', editor.state.isComposing)
-    return !editor.state.isComposing
-  },
-  onCompositionUpdate() {
-    console.warn('update')
+  onInput(target, change, editor, onTextChange) {
+    // return !editor.state.isStrictComposing
     return false
   },
-  onCompositionEnd() {
-    console.warn('end')
-    // there is always an input event after the onCompositionEnd
-    return false
+  onCompositionUpdate(target, change, editor, onTextChange) {
+    return true
   },
-  onSelect() {
-    console.warn('select')
-    return !editor.state.isComposing
-  }
+  onCompositionEnd(target, change, editor, onTextChange) {
+    return true
+  },
 }
 
 let should = desktop
@@ -69,7 +70,7 @@ if (/Android 9/.test(userAgent)) {
 function wrapEvents(events) {
   const nextEvents = {}
   for (const key of Object.keys(events)) {
-    nextEvents[key] = function (...args) {
+    nextEvents[key] = function(...args) {
       const result = events[key](...args)
       console.log(key, result)
       return result

@@ -9,7 +9,7 @@
             "object": "text",
             "leaves": [
               {
-                "text": "This is editable "
+                "text": "This is "
               },
               {
                 "text": "rich",
@@ -21,6 +21,20 @@
               },
               {
                 "text": " text, "
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "object": "block",
+        "type": "paragraph",
+        "nodes": [
+          {
+            "object": "text",
+            "leaves": [
+              {
+                "text": "Hello there."
               }
             ]
           }

@@ -1,7 +1,7 @@
 import Base64 from 'slate-base64-serializer'
 import Debug from 'debug'
 import Plain from 'slate-plain-serializer'
-import { IS_IOS } from 'slate-dev-environment'
+import { IS_IOS, IS_ANDROID } from 'slate-dev-environment'
 import React from 'react'
 import getWindow from 'get-window'
 import { Block, Inline, Text } from 'slate'
@@ -52,15 +52,18 @@ function AfterPlugin() {
   //
   // https://github.com/facebook/react/issues/11211
   function onBeforeInput(event, change, editor) {
-    console.warn('onBeforeInput')
+    // console.warn('onBeforeInput')
     debug('onBeforeInput', { event })
-    return // don't return true or we won't see onInput
+    // return // don't return true or we won't see onInput
     // return true
+    console.log('onBeforeInput')
 
-    if (HAS_COMPOSITION) {
-      debug('onBeforeInput CANCEL')
-      return
-    }
+    if (IS_ANDROID) return
+
+    // if (HAS_COMPOSITION) {
+    //   debug('onBeforeInput CANCEL')
+    //   return
+    // }
 
     const isSynthetic = !!event.nativeEvent
 
@@ -130,6 +133,7 @@ function AfterPlugin() {
       case 'insertFromYank':
       case 'insertReplacementText':
       case 'insertText': {
+        if (IS_ANDROID) return
         // COMPAT: `data` should have the text for the `insertText` input type
         // and `dataTransfer` should have the text for the
         // `insertReplacementText` input type, but Safari uses `insertText` for
@@ -401,7 +405,7 @@ function AfterPlugin() {
   function onInput(event, change, editor) {
     debug('onInput', { event })
     console.warn('onInput')
-    if (shouldChangeText.onInput(event, change, editor)) {
+    if (shouldChangeText.onInput(event.target, change, editor, onTextChange)) {
       return onTextChange(event.target, change, editor, 'onInput')
     }
     return
@@ -590,40 +594,41 @@ function AfterPlugin() {
     // If the text is no different, abort.
     if (textContent == text) {
       console.log('SAME TEXT')
-      return setSelectionFromDOM(target, change, editor)
+      // return setSelectionFromDOM(target, change, editor)
+      return
     } else {
-      console.log('DIFFERENT TEXT... UPDATING STATE')
+      console.log('DIFFERENT TEXT... UPDATING STATE', textContent, text)
     }
 
-    const { anchorOffset, focusOffset, focusNode } = window.getSelection()
-    const domSelection = window.getSelection()
-    // console.log('getSelection properties', { anchorOffset, focusOffset })
-    // console.log('domSelection', domSelection)
-    // console.log('parentNode', focusNode ? focusNode.parentNode : null)
-    console.log('anchorNode.parentNode', domSelection.anchorNode.parentNode)
-    const closest = domSelection.anchorNode.parentNode.closest('[data-key]')
-    console.log('closest', closest)
+    // const { anchorOffset, focusOffset, focusNode } = window.getSelection()
+    // const domSelection = window.getSelection()
+    // // console.log('getSelection properties', { anchorOffset, focusOffset })
+    // // console.log('domSelection', domSelection)
+    // // console.log('parentNode', focusNode ? focusNode.parentNode : null)
+    // console.log('anchorNode.parentNode', domSelection.anchorNode.parentNode)
+    // const closest = domSelection.anchorNode.parentNode.closest('[data-key]')
+    // console.log('closest', closest)
 
-    const offsetInNode = getOffsetInNode(domSelection, closest)
-    console.log('offset', offset, textContent)
+    // const offsetInNode = getOffsetInNode(domSelection, closest)
+    // console.log('offset', offset, textContent)
 
-    const offsetOfNode = getOffsetOfNode(domSelection)
-    console.log({ offsetOfNode })
+    // const offsetOfNode = getOffsetOfNode(domSelection)
+    // console.log({ offsetOfNode })
 
-    const diffOffsets = getDiffOffsets(textContent, text)
-    console.log(diffOffsets, textContent, text)
-    const theOffset = text.length - diffOffsets.end + 1
+    // const diffOffsets = getDiffOffsets(textContent, text)
+    // console.log(diffOffsets, textContent, text)
+    // const theOffset = text.length - diffOffsets.end + 1
 
-    const offset = offsetOfNode + (text.length - diffOffsets.end + 1)
-    // TODO: NEED TO ADD ALL THE OTHER OFFSETS BEFORE IT!
+    // const offset = offsetOfNode + (text.length - diffOffsets.end + 1)
+    // // TODO: NEED TO ADD ALL THE OTHER OFFSETS BEFORE IT!
 
-    // Determine what the selection should be after changing the text.
-    const delta = textContent.length - text.length
+    // // Determine what the selection should be after changing the text.
+    // const delta = textContent.length - text.length
 
     // const corrected = selection.moveToEnd().moveForward(delta)
     // const corrected = selection.moveAnchorTo(offset).moveFocusTo(offset)
     // console.log('leaf', leaf, leaf.key)
-    const corrected = selection.moveAnchorTo(offset).moveFocusTo(offset)
+    // const corrected = selection.moveAnchorTo(offset).moveFocusTo(offset)
 
     let entire = selection
       .moveAnchorTo(point.key, start)
@@ -632,16 +637,18 @@ function AfterPlugin() {
     entire = document.resolveRange(entire)
 
     // Change the current value to have the leaf's text replaced.
-    editor.change(change => {
-      change.insertTextAtRange(entire, textContent, leaf.marks)
-      setSelectionFromDOM(target, change, editor)
-      // .select(corrected)
-    })
+    // editor.change(change => {
+    change.insertTextAtRange(entire, textContent, leaf.marks)
+    setSelectionFromDOM(target, change, editor)
+    // .select(corrected)
+    // })
+
     console.warn('/onTextChange')
     return true
   }
 
-  function setSelectionFromDOM(target, change, editor) {
+  function setSelectionFromDOM(target, change, editor, {from}={}) {
+    console.warn('setSelectionFromDOM', from)
     const window = getWindow(target)
     const { value } = change
     const { document } = value
@@ -712,7 +719,14 @@ function AfterPlugin() {
 
   function onCompositionUpdate(event, change, editor) {
     console.warn('onCompositionUpdate')
-    if (shouldChangeText.onCompositionUpdate(event, change, editor)) {
+    if (
+      shouldChangeText.onCompositionUpdate(
+        event.target,
+        change,
+        editor,
+        onTextChange
+      )
+    ) {
       return onTextChange(event.target, change, editor, 'onCompositionUpdate')
     }
     return true
@@ -816,9 +830,28 @@ function AfterPlugin() {
    * @param {Editor} editor
    */
 
+  // TODO:
+  // Try reconciling the DOM and then calling the split block stuff.
+  // Also, make sure to call `setSelectionChange` so the cursor is in the right
+  // place.
+  //
+  // TODO:
+  // Also, take a look at onTextChange. There is an editor.change method in
+  // there that I think should be removed and replaced simply with the `change`
+  // object which was passed in. These may be conflicting with each other.
+
   function onKeyDown(event, change, editor) {
+    console.warn('onKeyDown', {
+      isComposing: editor.state.isComposing,
+      isStrictComposing: editor.isStrictComposing,
+    })
     debug('onKeyDown', { event })
-    return
+
+    if (shouldChangeText.onKeyDown(event.target, change, editor, onTextChange)) {
+    //   console.log('onKeyDown -> onTextChange')
+    //   onTextChange(event.target, change, editor, 'onKeyDown')
+      onTextChange(event.target, change, editor, 'onKeyDown')
+    }
 
     const { value } = change
 
