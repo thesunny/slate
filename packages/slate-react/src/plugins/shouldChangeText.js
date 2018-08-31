@@ -43,7 +43,7 @@ const desktop = {
 let changeAfterCompositionUpdate = false
 let inputAfterCompositionEnd = false
 const api28 = {
-  onKeyDown(target, change, editor, onTextChange) {
+  onKeyDown(window, change, editor, onTextChange) {
     // if (changeAfterCompositionUpdate) {
     //   changeAfterCompositionUpdate = false
     //   return true
@@ -51,12 +51,12 @@ const api28 = {
     // return false
     return !editor.isStrictComposing
   },
-  onInput(target, change, editor, onTextChange) {
+  onInput(window, change, editor, onTextChange) {
     // inputAfterCompositionEnd = true
     return !editor.isStrictComposing
     // return true
   },
-  onCompositionUpdate(target, change, editor, onTextChange) {
+  onCompositionUpdate(window, change, editor, onTextChange) {
     changeAfterCompositionUpdate = true
     // setTimeout(() => {
       // editor.change(change =>
@@ -65,7 +65,7 @@ const api28 = {
     // }, 20)
     return false
   },
-  onCompositionEnd(target, change, editor, onTextChange) {
+  onCompositionEnd(window, change, editor, onTextChange) {
     // inputAfterCompositionEnd = false
     // setTimeout(() => {
     //   if (inputAfterCompositionEnd) return
@@ -76,14 +76,14 @@ const api28 = {
 }
 
 const api27 = {
-  onInput(target, change, editor, onTextChange) {
+  onInput(window, change, editor, onTextChange) {
     // return !editor.state.isStrictComposing
     return false
   },
-  onCompositionUpdate(target, change, editor, onTextChange) {
+  onCompositionUpdate(window, change, editor, onTextChange) {
     return true
   },
-  onCompositionEnd(target, change, editor, onTextChange) {
+  onCompositionEnd(window, change, editor, onTextChange) {
     return true
   },
 }

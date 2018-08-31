@@ -375,7 +375,7 @@ class Content extends React.Component {
    */
 
   render() {
-    console.warn('Content#render')
+    console.warn('api:render')
     const { props } = this
     const {
       className,

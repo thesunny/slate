@@ -6,13 +6,13 @@ import findRange from '../utils/find-range'
 // results in the selection being placed in the position where the composition
 // started.
 export default function setSelectionFromDOM(
-  target,
+  window,
   change,
   editor,
   { from } = {}
 ) {
   console.warn('setSelectionFromDOM', from)
-  const window = getWindow(target)
+  // const window = getWindow(target)
   const { value } = change
   const { document } = value
   const native = window.getSelection()

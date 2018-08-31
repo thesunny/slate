@@ -405,8 +405,9 @@ function AfterPlugin() {
     console.warn('!!!onInput')
     debug('onInput')
 
-    if (shouldChangeText.onInput(event.target, change, editor, onTextChange)) {
-      return onTextChange(event.target, change, editor, 'onInput')
+    const window = getWindow(event.target)
+    if (shouldChangeText.onInput(window, change, editor, onTextChange)) {
+      return onTextChange(window, change, editor, 'onInput')
     }
     return
     // console.warn('onInput')
@@ -526,8 +527,8 @@ function AfterPlugin() {
     return nodeRange.toString().length
   }
 
-  function onTextChange(target, change, editor, src) {
-    return setTextFromDomSelection(target, change, editor, src)
+  function onTextChange(window, change, editor, src) {
+    return setTextFromDomSelection(window, change, editor, src)
   }
 
   // function setSelectionFromDOM(target, change, editor, { from } = {}) {
@@ -602,15 +603,16 @@ function AfterPlugin() {
 
   function onCompositionUpdate(event, change, editor) {
     console.warn('onCompositionUpdate')
+    const window = getWindow(event.target)
     if (
       shouldChangeText.onCompositionUpdate(
-        event.target,
+        window,
         change,
         editor,
         onTextChange
       )
     ) {
-      return onTextChange(event.target, change, editor, 'onCompositionUpdate')
+      return onTextChange(window, change, editor, 'onCompositionUpdate')
     }
     return true
     // if (editor.state.isComposing) return true
@@ -626,9 +628,10 @@ function AfterPlugin() {
     // return true
     debug('onCompositionEnd', { event })
     console.warn('onCompositionEnd', { onTextChange })
+    const window = getWindow(event.target)
     if (
       shouldChangeText.onCompositionEnd(
-        event.target,
+        window,
         change,
         editor,
         onTextChange
@@ -730,17 +733,17 @@ function AfterPlugin() {
     })
     debug('onKeyDown', { event })
 
+    const window = getWindow(event.target)
+
     if (
-      shouldChangeText.onKeyDown(event.target, change, editor, onTextChange)
+      shouldChangeText.onKeyDown(window, change, editor, onTextChange)
     ) {
       //   console.log('onKeyDown -> onTextChange')
       //   onTextChange(event.target, change, editor, 'onKeyDown')
-      onTextChange(event.target, change, editor, 'onKeyDown')
+      onTextChange(window, change, editor, 'onKeyDown')
     }
 
     const { value } = change
-
-    console.log(1)
 
     // COMPAT: In iOS, some of these hotkeys are handled in the
     // `onNativeBeforeInput` handler of the `<Content>` component in order to
@@ -767,8 +770,6 @@ function AfterPlugin() {
       return change.deleteLineForward()
     }
 
-    console.log(2)
-
     if (Hotkeys.isDeleteWordBackward(event)) {
       return change.deleteWordBackward()
     }
@@ -792,8 +793,6 @@ function AfterPlugin() {
       event.preventDefault()
       return change.moveToStartOfBlock()
     }
-
-    console.log(3)
 
     if (Hotkeys.isMoveLineForward(event)) {
       event.preventDefault()
@@ -834,8 +833,6 @@ function AfterPlugin() {
       }
     }
 
-    console.log(4)
-
     if (Hotkeys.isExtendBackward(event)) {
       const { document, isInVoid, previousText, startText } = value
       const isPreviousInVoid =
@@ -847,8 +844,6 @@ function AfterPlugin() {
       }
     }
 
-    console.log(5)
-
     if (Hotkeys.isExtendForward(event)) {
       const { document, isInVoid, nextText, startText } = value
       const isNextInVoid = nextText && document.hasVoidParent(nextText.key)
@@ -859,7 +854,6 @@ function AfterPlugin() {
       }
     }
 
-    console.log(6)
   }
 
   /**
@@ -905,78 +899,79 @@ function AfterPlugin() {
   function onSelect(event, change, editor) {
     debug('onSelect', { event })
     console.warn('onSelect')
-    return setSelectionFromDOM(event.target, change, editor, {
+    const window = getWindow(event.target)
+    return setSelectionFromDOM(window, change, editor, {
       from: 'onSelect',
     })
     // console.warn('onSelect')
     // return
 
-    const window = getWindow(event.target)
-    const { value } = change
-    const { document } = value
-    const native = window.getSelection()
+    // const window = getWindow(event.target)
+    // const { value } = change
+    // const { document } = value
+    // const native = window.getSelection()
 
-    // If there are no ranges, the editor was blurred natively.
-    if (!native.rangeCount) {
-      change.blur()
-      return
-    }
+    // // If there are no ranges, the editor was blurred natively.
+    // if (!native.rangeCount) {
+    //   change.blur()
+    //   return
+    // }
 
-    // Otherwise, determine the Slate selection from the native one.
-    let range = findRange(native, value)
-    if (!range) return
+    // // Otherwise, determine the Slate selection from the native one.
+    // let range = findRange(native, value)
+    // if (!range) return
 
-    const { anchor, focus } = range
-    const anchorText = document.getNode(anchor.key)
-    const focusText = document.getNode(focus.key)
-    const anchorInline = document.getClosestInline(anchor.key)
-    const focusInline = document.getClosestInline(focus.key)
-    const focusBlock = document.getClosestBlock(focus.key)
-    const anchorBlock = document.getClosestBlock(anchor.key)
+    // const { anchor, focus } = range
+    // const anchorText = document.getNode(anchor.key)
+    // const focusText = document.getNode(focus.key)
+    // const anchorInline = document.getClosestInline(anchor.key)
+    // const focusInline = document.getClosestInline(focus.key)
+    // const focusBlock = document.getClosestBlock(focus.key)
+    // const anchorBlock = document.getClosestBlock(anchor.key)
 
-    // COMPAT: If the anchor point is at the start of a non-void, and the
-    // focus point is inside a void node with an offset that isn't `0`, set
-    // the focus offset to `0`. This is due to void nodes <span>'s being
-    // positioned off screen, resulting in the offset always being greater
-    // than `0`. Since we can't know what it really should be, and since an
-    // offset of `0` is less destructive because it creates a hanging
-    // selection, go with `0`. (2017/09/07)
-    if (
-      anchorBlock &&
-      !anchorBlock.isVoid &&
-      anchor.offset == 0 &&
-      focusBlock &&
-      focusBlock.isVoid &&
-      focus.offset != 0
-    ) {
-      range = range.setFocus(focus.setOffset(0))
-    }
+    // // COMPAT: If the anchor point is at the start of a non-void, and the
+    // // focus point is inside a void node with an offset that isn't `0`, set
+    // // the focus offset to `0`. This is due to void nodes <span>'s being
+    // // positioned off screen, resulting in the offset always being greater
+    // // than `0`. Since we can't know what it really should be, and since an
+    // // offset of `0` is less destructive because it creates a hanging
+    // // selection, go with `0`. (2017/09/07)
+    // if (
+    //   anchorBlock &&
+    //   !anchorBlock.isVoid &&
+    //   anchor.offset == 0 &&
+    //   focusBlock &&
+    //   focusBlock.isVoid &&
+    //   focus.offset != 0
+    // ) {
+    //   range = range.setFocus(focus.setOffset(0))
+    // }
 
-    // COMPAT: If the selection is at the end of a non-void inline node, and
-    // there is a node after it, put it in the node after instead. This
-    // standardizes the behavior, since it's indistinguishable to the user.
-    if (
-      anchorInline &&
-      !anchorInline.isVoid &&
-      anchor.offset == anchorText.text.length
-    ) {
-      const block = document.getClosestBlock(anchor.key)
-      const next = block.getNextText(anchor.key)
-      if (next) range = range.moveAnchorTo(next.key, 0)
-    }
+    // // COMPAT: If the selection is at the end of a non-void inline node, and
+    // // there is a node after it, put it in the node after instead. This
+    // // standardizes the behavior, since it's indistinguishable to the user.
+    // if (
+    //   anchorInline &&
+    //   !anchorInline.isVoid &&
+    //   anchor.offset == anchorText.text.length
+    // ) {
+    //   const block = document.getClosestBlock(anchor.key)
+    //   const next = block.getNextText(anchor.key)
+    //   if (next) range = range.moveAnchorTo(next.key, 0)
+    // }
 
-    if (
-      focusInline &&
-      !focusInline.isVoid &&
-      focus.offset == focusText.text.length
-    ) {
-      const block = document.getClosestBlock(focus.key)
-      const next = block.getNextText(focus.key)
-      if (next) range = range.moveFocusTo(next.key, 0)
-    }
+    // if (
+    //   focusInline &&
+    //   !focusInline.isVoid &&
+    //   focus.offset == focusText.text.length
+    // ) {
+    //   const block = document.getClosestBlock(focus.key)
+    //   const next = block.getNextText(focus.key)
+    //   if (next) range = range.moveFocusTo(next.key, 0)
+    // }
 
-    range = document.resolveRange(range)
-    change.select(range)
+    // range = document.resolveRange(range)
+    // change.select(range)
   }
 
   /**
