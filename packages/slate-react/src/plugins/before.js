@@ -31,7 +31,7 @@ const debug = Debug('slate:before')
 function BeforePlugin() {
   let activeElement = null
   let compositionCount = 0
-  let isComposing = false
+  let isComposing = false // waits for the next animation frame
   let isStrictComposing = false // without waiting for next animation frame
   let isCopying = false
   let isDragging = false
@@ -378,8 +378,9 @@ function BeforePlugin() {
     // We use that to reconcile the DOM because at the `compositionEnd` event
     // the DOM hasn't changed yet. It actually changes during the `input`
     // event that fires after.
-    // if (IS_ANDROID ? isStrictComposing : isComposing) return true
-    if (isStrictComposing) return true
+    if (IS_ANDROID ? isStrictComposing : isComposing) return true
+    // if (IS_ANDROID) return
+    // if (isStrictComposing) return true
     if (change.value.isBlurred) return true
 
     debug('onInput', { event })

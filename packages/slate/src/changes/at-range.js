@@ -842,7 +842,7 @@ Changes.insertInlineAtRange = (change, range, inline, options = {}) => {
  */
 
 Changes.insertTextAtRange = (change, range, text, marks, options = {}) => {
-  let { normalize } = options
+  let { normalize, updateRangeStartAfterDelete } = options
   const { value } = change
   const { document } = value
   const { start } = range
@@ -851,11 +851,15 @@ Changes.insertTextAtRange = (change, range, text, marks, options = {}) => {
   const parent = document.getParent(start.key)
   if (parent.isVoid) return
 
+  if (updateRangeStartAfterDelete === undefined) {
+    updateRangeStartAfterDelete = true
+  }
+
   if (range.isExpanded) {
     change.deleteAtRange(range, { normalize: false })
 
     // Update range start after delete
-    if (change.value.selection.start.key !== key) {
+    if (updateRangeStartAfterDelete && change.value.selection.start.key !== key) {
       key = change.value.selection.start.key
       offset = change.value.selection.start.offset
     }

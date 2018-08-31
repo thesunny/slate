@@ -18,26 +18,59 @@ const desktop = {
   },
 }
 
+// Scenarios to try
+// 1. Update on every `input` that's not in a strictComposing.
+//    Doesn't work because `onCompositionUpdate` does not fire an `onInput`
+// 2. Update on ever `input` that's not strictComposing and
+//    on every `onCompositionUpdate`.
+//    Doesn't work because `onCompositionUpdate` is fired too early I think.
+// 3. Update on `input` not strictComposing.
+//    on every `onCompositionUpdate` with a `setTimeout`.
+//    Doesn't work.
+// 4. Update on `input` not strictComposing and also `input` immediately
+//    after an `onCompositionUpdate`.
+//    Fails. Fires too early.
+// 5. Update on all `input`
+//    Fails. Cursor moves to beginning of line.
+
+// 6. Work on seeing if there are ways to render document without wrecking
+//    the cursor position in the middle of a compositionUpdate
+// 7. Update on every `input` that's not in a strictComposing.
+//    Update on every `compositionUpdate` where the update happens in a
+//    different node than the preceding `input`. The onTextChange needs to
+//    happen at the location of the `input` and not the `compositionUpdate`.
+
 let changeAfterCompositionUpdate = false
 let inputAfterCompositionEnd = false
 const api28 = {
   onKeyDown(target, change, editor, onTextChange) {
+    // if (changeAfterCompositionUpdate) {
+    //   changeAfterCompositionUpdate = false
+    //   return true
+    // }
+    // return false
     return !editor.isStrictComposing
   },
-  onInput(target, change, editor) {
-    inputAfterCompositionEnd = true
+  onInput(target, change, editor, onTextChange) {
+    // inputAfterCompositionEnd = true
     return !editor.isStrictComposing
+    // return true
   },
   onCompositionUpdate(target, change, editor, onTextChange) {
     changeAfterCompositionUpdate = true
+    // setTimeout(() => {
+      // editor.change(change =>
+      //   onTextChange(target, change, editor, 'setTimeout(onInput)')
+      // )
+    // }, 20)
     return false
   },
   onCompositionEnd(target, change, editor, onTextChange) {
-    inputAfterCompositionEnd = false
-    setTimeout(() => {
-      if (inputAfterCompositionEnd) return
-      onTextChange(target, change, editor, 'setTimeout(onCompositionEnd)')
-    }, 20)
+    // inputAfterCompositionEnd = false
+    // setTimeout(() => {
+    //   if (inputAfterCompositionEnd) return
+    //   onTextChange(target, change, editor, 'setTimeout(onCompositionEnd)')
+    // }, 20)
     return false
   },
 }

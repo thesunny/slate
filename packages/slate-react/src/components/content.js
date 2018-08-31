@@ -146,7 +146,9 @@ class Content extends React.Component {
     // If we are in the Android editor, we don't want the selection updated
     // during a composition. This is because in Android we don't update the
     // editor state until the composition ends.
+    console.log('updateSelection: should I do it?')
     if (IS_ANDROID && editor.isStrictComposing) return
+    console.log('updateSelection: I might do it!')
 
     // If both selections are blurred, do nothing.
     if (!rangeCount && selection.isBlurred) return

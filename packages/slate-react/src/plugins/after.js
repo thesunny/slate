@@ -22,6 +22,8 @@ import { HAS_COMPOSITION } from './composition'
 
 import getDiffOffsets from './getDiffOffsets'
 import shouldChangeText from './shouldChangeText'
+import setSelectionFromDOM from './set-selection-from-dom'
+import setTextFromDomSelection from './set-text-from-dom-selection'
 
 /**
  * Debug.
@@ -54,11 +56,8 @@ function AfterPlugin() {
   function onBeforeInput(event, change, editor) {
     // console.warn('onBeforeInput')
     debug('onBeforeInput', { event })
-    // return // don't return true or we won't see onInput
-    // return true
-    console.log('onBeforeInput')
 
-    if (IS_ANDROID) return
+    if (IS_ANDROID) return // don't return true or we won't see onInput
 
     // if (HAS_COMPOSITION) {
     //   debug('onBeforeInput CANCEL')
@@ -403,8 +402,9 @@ function AfterPlugin() {
    */
 
   function onInput(event, change, editor) {
-    debug('onInput', { event })
-    console.warn('onInput')
+    console.warn('!!!onInput')
+    debug('onInput')
+
     if (shouldChangeText.onInput(event.target, change, editor, onTextChange)) {
       return onTextChange(event.target, change, editor, 'onInput')
     }
@@ -526,196 +526,79 @@ function AfterPlugin() {
     return nodeRange.toString().length
   }
 
-  // This method will be called both by `onInput` when we are not in a
-  // composition and `onCompositionEnd`.
-  //
-  // It needs to create a `change` event based on doing a diff between the
-  // DOM and Slate's Editor State.
-  //
-  // If there is no different, we simply return without making any changes.
-  //
-  // If there is a difference:
-  //
-  // * We need to remove/insert text to reconcile the Editor State to the DOM
-  // * We need to read the current selection position and then set it in the
-  //   Editor State
-  //
-  // Some notable points:
-  //
-  // * We do not assume any changes in marks. This should hold true though
-  //   since we shouldn't see a change in marks in any added/removed text
-  //   during a composition.
   function onTextChange(target, change, editor, src) {
-    // debug('onTextChange', { event })
-    console.warn('onTextChange', src)
-
-    const window = getWindow(target)
-    const { value } = change
-
-    // Get the selection point.
-    const native = window.getSelection()
-    const { anchorNode } = native
-    const point = findPoint(anchorNode, 0, value)
-    if (!point) return
-
-    // Get the text node and leaf in question.
-    const { document, selection } = value
-    const node = document.getDescendant(point.key)
-    const block = document.getClosestBlock(node.key)
-    const leaves = node.getLeaves()
-    const lastText = block.getLastText()
-    const lastLeaf = leaves.last()
-    let start = 0
-    let end = 0
-
-    const leaf =
-      leaves.find(r => {
-        start = end
-        end += r.text.length
-        if (end > point.offset) return true
-      }) || lastLeaf
-
-    // Get the text information.
-    const { text } = leaf
-    let { textContent } = anchorNode
-    const isLastText = node == lastText
-    const isLastLeaf = leaf == lastLeaf
-    const lastChar = textContent.charAt(textContent.length - 1)
-
-    // COMPAT: If this is the last leaf, and the DOM text ends in a new line,
-    // we will have added another new line in <Leaf>'s render method to account
-    // for browsers collapsing a single trailing new lines, so remove it.
-    if (isLastText && isLastLeaf && lastChar == '\n') {
-      textContent = textContent.slice(0, -1)
-    }
-
-    // debug('text', { textContent, text, isComposing: editor.state.isComposing })
-
-    // If the text is no different, abort.
-    if (textContent == text) {
-      console.log('SAME TEXT')
-      // return setSelectionFromDOM(target, change, editor)
-      return
-    } else {
-      console.log('DIFFERENT TEXT... UPDATING STATE', textContent, text)
-    }
-
-    // const { anchorOffset, focusOffset, focusNode } = window.getSelection()
-    // const domSelection = window.getSelection()
-    // // console.log('getSelection properties', { anchorOffset, focusOffset })
-    // // console.log('domSelection', domSelection)
-    // // console.log('parentNode', focusNode ? focusNode.parentNode : null)
-    // console.log('anchorNode.parentNode', domSelection.anchorNode.parentNode)
-    // const closest = domSelection.anchorNode.parentNode.closest('[data-key]')
-    // console.log('closest', closest)
-
-    // const offsetInNode = getOffsetInNode(domSelection, closest)
-    // console.log('offset', offset, textContent)
-
-    // const offsetOfNode = getOffsetOfNode(domSelection)
-    // console.log({ offsetOfNode })
-
-    // const diffOffsets = getDiffOffsets(textContent, text)
-    // console.log(diffOffsets, textContent, text)
-    // const theOffset = text.length - diffOffsets.end + 1
-
-    // const offset = offsetOfNode + (text.length - diffOffsets.end + 1)
-    // // TODO: NEED TO ADD ALL THE OTHER OFFSETS BEFORE IT!
-
-    // // Determine what the selection should be after changing the text.
-    // const delta = textContent.length - text.length
-
-    // const corrected = selection.moveToEnd().moveForward(delta)
-    // const corrected = selection.moveAnchorTo(offset).moveFocusTo(offset)
-    // console.log('leaf', leaf, leaf.key)
-    // const corrected = selection.moveAnchorTo(offset).moveFocusTo(offset)
-
-    let entire = selection
-      .moveAnchorTo(point.key, start)
-      .moveFocusTo(point.key, end)
-
-    entire = document.resolveRange(entire)
-
-    // Change the current value to have the leaf's text replaced.
-    // editor.change(change => {
-    change.insertTextAtRange(entire, textContent, leaf.marks)
-    setSelectionFromDOM(target, change, editor)
-    // .select(corrected)
-    // })
-
-    console.warn('/onTextChange')
-    return true
+    return setTextFromDomSelection(target, change, editor, src)
   }
 
-  function setSelectionFromDOM(target, change, editor, {from}={}) {
-    console.warn('setSelectionFromDOM', from)
-    const window = getWindow(target)
-    const { value } = change
-    const { document } = value
-    const native = window.getSelection()
+  // function setSelectionFromDOM(target, change, editor, { from } = {}) {
+  //   console.warn('setSelectionFromDOM', from)
+  //   const window = getWindow(target)
+  //   const { value } = change
+  //   const { document } = value
+  //   const native = window.getSelection()
 
-    // If there are no ranges, the editor was blurred natively.
-    if (!native.rangeCount) {
-      change.blur()
-      return
-    }
+  //   // If there are no ranges, the editor was blurred natively.
+  //   if (!native.rangeCount) {
+  //     change.blur()
+  //     return
+  //   }
 
-    // Otherwise, determine the Slate selection from the native one.
-    let range = findRange(native, value)
-    if (!range) return
+  //   // Otherwise, determine the Slate selection from the native one.
+  //   let range = findRange(native, value)
+  //   if (!range) return
 
-    const { anchor, focus } = range
-    const anchorText = document.getNode(anchor.key)
-    const focusText = document.getNode(focus.key)
-    const anchorInline = document.getClosestInline(anchor.key)
-    const focusInline = document.getClosestInline(focus.key)
-    const focusBlock = document.getClosestBlock(focus.key)
-    const anchorBlock = document.getClosestBlock(anchor.key)
+  //   const { anchor, focus } = range
+  //   const anchorText = document.getNode(anchor.key)
+  //   const focusText = document.getNode(focus.key)
+  //   const anchorInline = document.getClosestInline(anchor.key)
+  //   const focusInline = document.getClosestInline(focus.key)
+  //   const focusBlock = document.getClosestBlock(focus.key)
+  //   const anchorBlock = document.getClosestBlock(anchor.key)
 
-    // COMPAT: If the anchor point is at the start of a non-void, and the
-    // focus point is inside a void node with an offset that isn't `0`, set
-    // the focus offset to `0`. This is due to void nodes <span>'s being
-    // positioned off screen, resulting in the offset always being greater
-    // than `0`. Since we can't know what it really should be, and since an
-    // offset of `0` is less destructive because it creates a hanging
-    // selection, go with `0`. (2017/09/07)
-    if (
-      anchorBlock &&
-      !anchorBlock.isVoid &&
-      anchor.offset == 0 &&
-      focusBlock &&
-      focusBlock.isVoid &&
-      focus.offset != 0
-    ) {
-      range = range.setFocus(focus.setOffset(0))
-    }
+  //   // COMPAT: If the anchor point is at the start of a non-void, and the
+  //   // focus point is inside a void node with an offset that isn't `0`, set
+  //   // the focus offset to `0`. This is due to void nodes <span>'s being
+  //   // positioned off screen, resulting in the offset always being greater
+  //   // than `0`. Since we can't know what it really should be, and since an
+  //   // offset of `0` is less destructive because it creates a hanging
+  //   // selection, go with `0`. (2017/09/07)
+  //   if (
+  //     anchorBlock &&
+  //     !anchorBlock.isVoid &&
+  //     anchor.offset == 0 &&
+  //     focusBlock &&
+  //     focusBlock.isVoid &&
+  //     focus.offset != 0
+  //   ) {
+  //     range = range.setFocus(focus.setOffset(0))
+  //   }
 
-    // COMPAT: If the selection is at the end of a non-void inline node, and
-    // there is a node after it, put it in the node after instead. This
-    // standardizes the behavior, since it's indistinguishable to the user.
-    if (
-      anchorInline &&
-      !anchorInline.isVoid &&
-      anchor.offset == anchorText.text.length
-    ) {
-      const block = document.getClosestBlock(anchor.key)
-      const next = block.getNextText(anchor.key)
-      if (next) range = range.moveAnchorTo(next.key, 0)
-    }
+  //   // COMPAT: If the selection is at the end of a non-void inline node, and
+  //   // there is a node after it, put it in the node after instead. This
+  //   // standardizes the behavior, since it's indistinguishable to the user.
+  //   if (
+  //     anchorInline &&
+  //     !anchorInline.isVoid &&
+  //     anchor.offset == anchorText.text.length
+  //   ) {
+  //     const block = document.getClosestBlock(anchor.key)
+  //     const next = block.getNextText(anchor.key)
+  //     if (next) range = range.moveAnchorTo(next.key, 0)
+  //   }
 
-    if (
-      focusInline &&
-      !focusInline.isVoid &&
-      focus.offset == focusText.text.length
-    ) {
-      const block = document.getClosestBlock(focus.key)
-      const next = block.getNextText(focus.key)
-      if (next) range = range.moveFocusTo(next.key, 0)
-    }
+  //   if (
+  //     focusInline &&
+  //     !focusInline.isVoid &&
+  //     focus.offset == focusText.text.length
+  //   ) {
+  //     const block = document.getClosestBlock(focus.key)
+  //     const next = block.getNextText(focus.key)
+  //     if (next) range = range.moveFocusTo(next.key, 0)
+  //   }
 
-    range = document.resolveRange(range)
-    change.select(range)
-  }
+  //   range = document.resolveRange(range)
+  //   change.select(range)
+  // }
 
   function onCompositionUpdate(event, change, editor) {
     console.warn('onCompositionUpdate')
@@ -847,13 +730,17 @@ function AfterPlugin() {
     })
     debug('onKeyDown', { event })
 
-    if (shouldChangeText.onKeyDown(event.target, change, editor, onTextChange)) {
-    //   console.log('onKeyDown -> onTextChange')
-    //   onTextChange(event.target, change, editor, 'onKeyDown')
+    if (
+      shouldChangeText.onKeyDown(event.target, change, editor, onTextChange)
+    ) {
+      //   console.log('onKeyDown -> onTextChange')
+      //   onTextChange(event.target, change, editor, 'onKeyDown')
       onTextChange(event.target, change, editor, 'onKeyDown')
     }
 
     const { value } = change
+
+    console.log(1)
 
     // COMPAT: In iOS, some of these hotkeys are handled in the
     // `onNativeBeforeInput` handler of the `<Content>` component in order to
@@ -880,6 +767,8 @@ function AfterPlugin() {
       return change.deleteLineForward()
     }
 
+    console.log(2)
+
     if (Hotkeys.isDeleteWordBackward(event)) {
       return change.deleteWordBackward()
     }
@@ -903,6 +792,8 @@ function AfterPlugin() {
       event.preventDefault()
       return change.moveToStartOfBlock()
     }
+
+    console.log(3)
 
     if (Hotkeys.isMoveLineForward(event)) {
       event.preventDefault()
@@ -943,6 +834,8 @@ function AfterPlugin() {
       }
     }
 
+    console.log(4)
+
     if (Hotkeys.isExtendBackward(event)) {
       const { document, isInVoid, previousText, startText } = value
       const isPreviousInVoid =
@@ -954,6 +847,8 @@ function AfterPlugin() {
       }
     }
 
+    console.log(5)
+
     if (Hotkeys.isExtendForward(event)) {
       const { document, isInVoid, nextText, startText } = value
       const isNextInVoid = nextText && document.hasVoidParent(nextText.key)
@@ -963,6 +858,8 @@ function AfterPlugin() {
         return change.moveFocusForward()
       }
     }
+
+    console.log(6)
   }
 
   /**
@@ -1007,7 +904,10 @@ function AfterPlugin() {
 
   function onSelect(event, change, editor) {
     debug('onSelect', { event })
-    return setSelectionFromDOM(event.target, change, editor)
+    console.warn('onSelect')
+    return setSelectionFromDOM(event.target, change, editor, {
+      from: 'onSelect',
+    })
     // console.warn('onSelect')
     // return
 
