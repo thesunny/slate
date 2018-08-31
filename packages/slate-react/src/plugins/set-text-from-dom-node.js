@@ -6,7 +6,13 @@ import findDomNode from '../utils/find-dom-node'
 import findDomRange from '../utils/find-dom-range'
 import setSelectionFromDOM from './set-selection-from-dom'
 
-export default function setTextFromDomNode(window, domNode, change, editor, { from } = {}) {
+export default function setTextFromDomNode(
+  window,
+  domNode,
+  change,
+  editor,
+  { from, dontSelect } = {}
+) {
   // find the text node and leaf in question.
   const { value } = change
   const point = findPoint(domNode, 0, value)
@@ -68,8 +74,25 @@ export default function setTextFromDomNode(window, domNode, change, editor, { fr
 
   // Set the selection from the DOM because we don't want the cursor to move
   // when the browser renders
-  setSelectionFromDOM(window, change, editor, { from: 'onTextChange' })
+  if (!dontSelect) {
+    setSelectionFromDOM(window, change, editor, { from: 'setTextFromDomNode' })
+  }
 
   return true
 }
 
+export function setTextFromDomNodes(
+  window,
+  domNodes,
+  change,
+  editor,
+  { from } = {}
+) {
+  for (const domNode of domNodes) {
+    setTextFromDomNode(window, domNode, change, editor, {
+      from,
+      dontSelect: true,
+    })
+  }
+  setSelectionFromDOM(window, change, editor, { from: 'setTextFromDomNodes' })
+}

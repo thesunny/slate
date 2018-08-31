@@ -1,3 +1,5 @@
+import { setTextFromDomNodes } from './set-text-from-dom-node'
+
 // Appears to work on Chrome
 const desktop = {
   // should we resolve on this input
@@ -40,37 +42,30 @@ const desktop = {
 //    different node than the preceding `input`. The onTextChange needs to
 //    happen at the location of the `input` and not the `compositionUpdate`.
 
-let changeAfterCompositionUpdate = false
-let inputAfterCompositionEnd = false
+let afterUpdate = false
+
+const compositionNodes = new Set()
 const api28 = {
   onKeyDown(window, change, editor, onTextChange) {
-    // if (changeAfterCompositionUpdate) {
-    //   changeAfterCompositionUpdate = false
-    //   return true
-    // }
-    // return false
     return !editor.isStrictComposing
   },
   onInput(window, change, editor, onTextChange) {
-    // inputAfterCompositionEnd = true
-    return !editor.isStrictComposing
-    // return true
+    if (editor.isStrictComposing) return false
+    setTextFromDomNodes(window, compositionNodes, change, editor, {
+      from: 'should onInput',
+    })
+    return false
+  },
+  onCompositionStart(window, change, editor, onTextChange) {
+    compositionNodes.clear()
   },
   onCompositionUpdate(window, change, editor, onTextChange) {
-    changeAfterCompositionUpdate = true
-    // setTimeout(() => {
-      // editor.change(change =>
-      //   onTextChange(target, change, editor, 'setTimeout(onInput)')
-      // )
-    // }, 20)
+    const { anchorNode } = window.getSelection()
+    compositionNodes.add(anchorNode)
+    console.log('should', { compositionNodes })
     return false
   },
   onCompositionEnd(window, change, editor, onTextChange) {
-    // inputAfterCompositionEnd = false
-    // setTimeout(() => {
-    //   if (inputAfterCompositionEnd) return
-    //   onTextChange(target, change, editor, 'setTimeout(onCompositionEnd)')
-    // }, 20)
     return false
   },
 }
