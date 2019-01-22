@@ -21,10 +21,24 @@ You also have to change `build.dev.js` to `build.dev.js?1` where the part after 
 ## To Deploy to GitHub
 
 ```
-# In the `packages/slate-react` directory
+# Increment the version number!
+
+cd packages/slate-react
 yarn prepublish
 
 # if not logged into npm
 npm login
 npm publish
 ```
+
+
+## To integrate into KB
+
+- Change `slate-react-for-kb` to match version number
+
+```
+yarn
+```
+
+- Restart the dev server to pull in new `node_modules`
+
