@@ -1,6 +1,6 @@
-
-import getWindow from 'get-window'
-import isBackward from 'selection-is-backward'
+import getWindow from "get-window"
+import isBackward from "selection-is-backward"
+import { IS_IOS } from "../constants/environment"
 
 /**
  * CSS overflow values that would cause scrolling.
@@ -8,11 +8,7 @@ import isBackward from 'selection-is-backward'
  * @type {Array}
  */
 
-const OVERFLOWS = [
-  'auto',
-  'overlay',
-  'scroll',
-]
+const OVERFLOWS = ["auto", "overlay", "scroll"]
 
 /**
  * Find the nearest parent with scrolling, or window.
@@ -49,7 +45,11 @@ function findScrollContainer(el) {
  * @param {Selection} selection
  */
 
+const agent = window.navigator.userAgent
+const DONT_SCROLL = IS_IOS && !!agent.match(/os 1(1|2|3|4|5)_/i)
+
 function scrollToSelection(selection) {
+  if (DONT_SCROLL) return
   if (!selection.anchorNode) return
 
   const window = getWindow(selection.anchorNode)
@@ -81,13 +81,10 @@ function scrollToSelection(selection) {
   const top = (backward ? rect.top : rect.bottom) + yOffset
   const left = (backward ? rect.left : rect.right) + xOffset
 
-  const x = left < yOffset || (width + xOffset) < left
-    ? left - width / 2
-    : xOffset
+  const x =
+    left < yOffset || width + xOffset < left ? left - width / 2 : xOffset
 
-  const y = top < yOffset || (height + yOffset) < top
-    ? top - height / 2
-    : yOffset
+  const y = top < yOffset || height + yOffset < top ? top - height / 2 : yOffset
 
   if (isWindow) {
     window.scrollTo(x, y)
