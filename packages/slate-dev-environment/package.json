@@ -1,5 +1,5 @@
 {
-  "name": "slate-dev-environment",
+  "name": "slate-dev-environment-android",
   "description": "INTERNAL: A set of environment-related constants for Slate's core.",
   "version": "0.2.1",
   "license": "MIT",
