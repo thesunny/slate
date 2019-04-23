@@ -1,5 +1,15 @@
 # Android
 
+## Event Flow on Text Entry
+
+Android events for a key press fire in this order:
+
+- onKeyDown
+- onBeforeInput
+- onTextInput
+- onInput
+
+
 The following is a list of unexpected behaviors in Android
 
 # Debugging

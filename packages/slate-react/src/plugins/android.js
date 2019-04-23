@@ -15,8 +15,6 @@ import Executor from '../utils/executor'
 const debug = Debug('slate:android')
 debug.reconcile = Debug('slate:reconcile')
 
-debug('ANDROID_API_VERSION', { ANDROID_API_VERSION })
-
 /**
  * Define variables related to composition state.
  */
@@ -25,6 +23,9 @@ const NONE = 0
 const COMPOSING = 1
 
 function AndroidPlugin() {
+
+  debug('initializing Android Plugin', { ANDROID_API_VERSION })
+
   /**
    * The current state of composition.
    *
