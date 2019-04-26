@@ -7,12 +7,9 @@ import setTextFromDomNode from '../utils/set-text-from-dom-node'
  * be the same as the DOM.
  *
  * Primarily used for compositions which can happen over multiple DOM Nodes.
- *
- * @param {Window} window
- * @param {Editor} editor
  */
 
-function Reconciler(window, editor) {
+function Reconciler() {
   /**
    * The set of nodes to reconcile against Slate's Document
    */
@@ -33,15 +30,18 @@ function Reconciler(window, editor) {
    * @param {Node} node
    */
 
-  function add(node) {
+  function addNode(node) {
     nodes.add(node)
   }
 
   /**
    * Reconcile the changes made to the DOM against Slate's Document.
+   *
+   * @param {Window} window
+   * @param {Editor} editor
    */
 
-  function run() {
+  function run(window, editor) {
     const domSelection = window.getSelection()
 
     // Reconcile each node
@@ -51,10 +51,10 @@ function Reconciler(window, editor) {
     setSelectionFromDom(window, editor, domSelection)
 
     // Reset the nodes Set
-    reset()
+    clear()
   }
 
-  return { clear, add, run }
+  return { clear, addNode, run }
 }
 
 export default Reconciler

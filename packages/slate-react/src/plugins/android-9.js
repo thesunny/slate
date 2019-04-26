@@ -9,6 +9,7 @@ import setSelectionFromDom from '../utils/set-selection-from-dom'
 import setTextFromDomNode from '../utils/set-text-from-dom-node'
 import isInputDataEnter from '../utils/is-input-data-enter'
 import isInputDataLastChar from '../utils/is-input-data-last-char'
+import ActionManager from '../utils/action-manager'
 import DomSnapshot from '../utils/dom-snapshot'
 import DelayedExecutor from '../utils/executor'
 
@@ -24,6 +25,38 @@ const COMPOSING = 1
 
 function Android9Plugin() {
   debug('initializing Android9Plugin')
+
+  const actionManager = new ActionManager({}, [
+    {
+      name: 'log',
+      onSetup() {
+        console.log('<===== SETUP')
+      },
+      onTeardown() {
+        console.log('TEARDOWN =====>')
+      },
+      onTrigger(event) {
+        console.log('TRIGGER', event.type)
+      },
+      onFinish() {
+        console.log('FINISH')
+      },
+    },
+    {
+      name: 'enter',
+      onTrigger(event, { editor }) {
+        if (event.type !== 'keydown') return
+        if (event.key !== 'Enter') return
+        event.preventDefault()
+        if (reconciler) reconciler.cancel()
+        if (deleter) deleter.cancel()
+        return () => {
+          reconcile(window, editor, { from: 'onKeyDown:enter' })
+          editor.splitBlock()
+        }
+      },
+    },
+  ])
 
   /**
    * The current state of composition.
@@ -170,6 +203,7 @@ function Android9Plugin() {
       status,
       e: pick(event, ['data', 'isComposing']),
     })
+    actionManager.trigger(event, editor)
 
     // If a `beforeInput` event fires after an `input:deleteContentBackward`
     // event, it appears to be a good indicator that it is some sort of
@@ -184,6 +218,7 @@ function Android9Plugin() {
   }
 
   function onTextInput(event, editor, next) {
+    actionManager.trigger(event, editor)
     debug('onTextInput')
   }
 
@@ -202,6 +237,7 @@ function Android9Plugin() {
 
   function onCompositionEnd(event, editor, next) {
     debug('onCompositionEnd', { event })
+    actionManager.trigger(event, editor)
     const window = getWindow(event.target)
     const domSelection = window.getSelection()
     const { anchorNode } = domSelection
@@ -226,6 +262,7 @@ function Android9Plugin() {
 
   function onCompositionStart(event, editor, next) {
     debug('onCompositionStart', { event })
+    actionManager.trigger(event, editor)
     status = COMPOSING
     nodes.clear()
   }
@@ -239,6 +276,7 @@ function Android9Plugin() {
    */
 
   function onCompositionUpdate(event, editor, next) {
+    actionManager.trigger(event, editor)
     debug('onCompositionUpdate', { event })
   }
 
@@ -256,6 +294,7 @@ function Android9Plugin() {
       status,
       e: pick(event, ['data', 'nativeEvent', 'inputType', 'isComposing']),
     })
+    actionManager.trigger(event, editor)
 
     const { nativeEvent } = event
 
@@ -350,21 +389,22 @@ function Android9Plugin() {
         'which',
       ]),
     })
+    actionManager.trigger(event, editor)
 
     const window = getWindow(event.target)
 
-    if (event.key === 'Enter') {
-      debug('onKeyDown:enter')
-      event.preventDefault()
-      if (reconciler) reconciler.cancel()
-      if (deleter) deleter.cancel()
+    // if (event.key === 'Enter') {
+    //   debug('onKeyDown:enter')
+    //   event.preventDefault()
+    //   if (reconciler) reconciler.cancel()
+    //   if (deleter) deleter.cancel()
 
-      window.requestAnimationFrame(() => {
-        reconcile(window, editor, { from: 'onKeyDown:enter' })
-        editor.splitBlock()
-      })
-      return
-    }
+    //   window.requestAnimationFrame(() => {
+    //     reconcile(window, editor, { from: 'onKeyDown:enter' })
+    //     editor.splitBlock()
+    //   })
+    //   return
+    // }
 
     // We need to take a snapshot of the current selection and the
     // element before when the user hits the backspace key. This is because
