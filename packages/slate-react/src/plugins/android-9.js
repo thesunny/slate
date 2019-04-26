@@ -12,6 +12,7 @@ import isInputDataLastChar from '../utils/is-input-data-last-char'
 import ActionManager from '../utils/action-manager'
 import DomSnapshot from '../utils/dom-snapshot'
 import DelayedExecutor from '../utils/executor'
+import Reconciler from '../utils/reconciler'
 
 const debug = Debug('slate:android')
 debug.reconcile = Debug('slate:reconcile')
@@ -100,6 +101,8 @@ function Android9Plugin() {
 
   let reconciler = null
 
+  let updater = new Reconciler()
+
   /**
    * A snapshot that gets taken when there is a `keydown` event in API26/27.
    * If an `input` gets called with `inputType` of `deleteContentBackward`
@@ -177,9 +180,9 @@ function Android9Plugin() {
   }
 
   /**
-   * On before input.
+   * Triage `beforeinput` and `textinput`.
    *
-   * Triages `onBeforeInput` so that the native event goes to
+   * Handles `onBeforeInput` so that the native event goes to
    * `onBeforeInputNative` and React's event which is `textInput` goes to
    * `onTextInput`
    *
@@ -197,6 +200,14 @@ function Android9Plugin() {
     }
   }
 
+  /**
+   * Handle `beforeinput` event
+   *
+   * @param {Event} event
+   * @param {Editor} editor
+   * @param {function} next
+   */
+  
   function onBeforeInputNative(event, editor, next) {
     debug('onBeforeInputNative', {
       event,
@@ -217,9 +228,17 @@ function Android9Plugin() {
     }
   }
 
+  /**
+   * Handle `textinput` event
+   *
+   * @param {Event} event
+   * @param {Editor} editor
+   * @param {function} next
+   */
+
   function onTextInput(event, editor, next) {
-    actionManager.trigger(event, editor)
     debug('onTextInput')
+    actionManager.trigger(event, editor)
   }
 
   /**
@@ -238,6 +257,7 @@ function Android9Plugin() {
   function onCompositionEnd(event, editor, next) {
     debug('onCompositionEnd', { event })
     actionManager.trigger(event, editor)
+
     const window = getWindow(event.target)
     const domSelection = window.getSelection()
     const { anchorNode } = domSelection
@@ -262,6 +282,13 @@ function Android9Plugin() {
 
   function onCompositionStart(event, editor, next) {
     debug('onCompositionStart', { event })
+
+    // Setup the updater by clearing it and adding the current cursor position
+    // as the first node to look at.
+    updater.clear()
+    const { anchorNode } = window.getSelection()
+    updater.addNode(anchorNode)
+
     actionManager.trigger(event, editor)
     status = COMPOSING
     nodes.clear()
@@ -276,6 +303,10 @@ function Android9Plugin() {
    */
 
   function onCompositionUpdate(event, editor, next) {
+    // Add current node to the updater
+    const { anchorNode } = window.getSelection()
+    updater.addNode(anchorNode)
+
     actionManager.trigger(event, editor)
     debug('onCompositionUpdate', { event })
   }
