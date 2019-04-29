@@ -41,7 +41,6 @@ function Android9Plugin() {
         switch (event.type) {
           case 'keydown':
             logTrigger(event.type, null, event.key)
-            // console.log('TRIGGER', event.type, ':', event.key)
             return
           case 'input':
             logTrigger(
@@ -49,24 +48,8 @@ function Android9Plugin() {
               event.nativeEvent.inputType,
               event.nativeEvent.data
             )
-            // console.log(
-            //   'TRIGGER2',
-            //   event.type,
-            //   ':',
-            //   event.nativeEvent.inputType,
-            //   ':',
-            //   JSON.stringify(event.nativeEvent.data)
-            // )
             return
           case 'beforeinput':
-            // console.log(
-            //   'TRIGGER2',
-            //   event.type,
-            //   ':',
-            //   event.inputType,
-            //   ':',
-            //   JSON.stringify(event.data)
-            // )
             logTrigger(event.type, event.inputType, event.data)
             return
           case 'textInput':
@@ -75,18 +58,9 @@ function Android9Plugin() {
               event.nativeEvent.inputType,
               event.nativeEvent.data
             )
-            // console.log(
-            //   'TRIGGER2',
-            //   event.type,
-            //   ':',
-            //   event.nativeEvent.inputType,
-            //   ':',
-            //   JSON.stringify(event.nativeEvent.data)
-            // )
             return
         }
         logTrigger(event.type)
-        // console.log('TRIGGER', event.type)
       },
       onFinish() {
         console.log('FINISH')
@@ -157,14 +131,15 @@ function Android9Plugin() {
     /**
      * Handle `space`
      *
-     * TODO: Find out if the last data is a " ". Doesn't display. Add quotes
-     * to logger.
-     *
      * - compositionend
      * - keydown : Unidentified
      * - beforeinput : insertText :
      * - textInput : undefined :
      * - input : insertText :
+     *
+     * NOTE: We used the snapshot to revert and then use `editor.insertText`
+     * to fix a bug when a user types `space`, `backspace`, `space`, `backspace`
+     * in the middle of a word.
      */
     {
       name: 'space',
@@ -173,11 +148,10 @@ function Android9Plugin() {
         const { nativeEvent } = event
         if (nativeEvent.inputType !== 'insertText') return
         if (nativeEvent.data !== ' ') return
-
-        if (reconciler) reconciler.cancel()
-        if (deleter) deleter.cancel()
-
-        reconcile(window, editor, { from: 'onInput:space' })
+        return function() {
+          keyDownSnapshot.apply(editor)
+          editor.insertText(' ')
+        }
         return true
       },
     },
