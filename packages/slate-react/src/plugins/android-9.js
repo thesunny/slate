@@ -2,13 +2,9 @@ import Debug from 'debug'
 import getWindow from 'get-window'
 import pick from 'lodash/pick'
 
-import { ANDROID_API_VERSION } from 'slate-dev-environment'
 import fixSelectionInZeroWidthBlock from '../utils/fix-selection-in-zero-width-block'
-import getSelectionFromDom from '../utils/get-selection-from-dom'
 import setSelectionFromDom from '../utils/set-selection-from-dom'
 import setTextFromDomNode from '../utils/set-text-from-dom-node'
-import isInputDataEnter from '../utils/is-input-data-enter'
-import isInputDataLastChar from '../utils/is-input-data-last-char'
 import ActionManager from '../utils/action-manager'
 import DomSnapshot from '../utils/dom-snapshot'
 import DelayedExecutor from '../utils/executor'
@@ -24,6 +20,11 @@ debug.reconcile = Debug('slate:reconcile')
 const NONE = 0
 const COMPOSING = 1
 
+function logTrigger(type, subtype, data) {
+  const fullType = subtype ? `${type}:${subtype}` : type
+  console.log('TRIGGER', fullType, JSON.stringify(data))
+}
+
 function Android9Plugin() {
   debug('initializing Android9Plugin')
 
@@ -31,18 +32,114 @@ function Android9Plugin() {
     {
       name: 'log',
       onSetup() {
-        console.log('<===== SETUP')
+        console.log('<===== SETUP ==')
       },
       onTeardown() {
-        console.log('TEARDOWN =====>')
+        console.log('====== TEARDOWN ==>')
       },
       onTrigger(event) {
-        console.log('TRIGGER', event.type)
+        switch (event.type) {
+          case 'keydown':
+            logTrigger(event.type, null, event.key)
+            // console.log('TRIGGER', event.type, ':', event.key)
+            return
+          case 'input':
+            logTrigger(
+              event.type,
+              event.nativeEvent.inputType,
+              event.nativeEvent.data
+            )
+            // console.log(
+            //   'TRIGGER2',
+            //   event.type,
+            //   ':',
+            //   event.nativeEvent.inputType,
+            //   ':',
+            //   JSON.stringify(event.nativeEvent.data)
+            // )
+            return
+          case 'beforeinput':
+            // console.log(
+            //   'TRIGGER2',
+            //   event.type,
+            //   ':',
+            //   event.inputType,
+            //   ':',
+            //   JSON.stringify(event.data)
+            // )
+            logTrigger(event.type, event.inputType, event.data)
+            return
+          case 'textInput':
+            logTrigger(
+              event.type,
+              event.nativeEvent.inputType,
+              event.nativeEvent.data
+            )
+            // console.log(
+            //   'TRIGGER2',
+            //   event.type,
+            //   ':',
+            //   event.nativeEvent.inputType,
+            //   ':',
+            //   JSON.stringify(event.nativeEvent.data)
+            // )
+            return
+        }
+        logTrigger(event.type)
+        // console.log('TRIGGER', event.type)
       },
       onFinish() {
         console.log('FINISH')
       },
     },
+    /**
+     * Handle compositions
+     */
+    {
+      name: 'composition-updates',
+      onTrigger(event) {
+        switch (event.type) {
+          case 'compositionstart':
+            status = COMPOSING
+            nodes.clear()
+
+            // Setup the updater by clearing it and adding the current cursor position
+            // as the first node to look at.
+            updater.clear()
+            const { anchorNode } = window.getSelection()
+            updater.addNode(anchorNode)
+            return
+          case 'input':
+            {
+              if (status === COMPOSING) {
+                const { anchorNode } = window.getSelection()
+                nodes.add(anchorNode)
+              }
+            }
+            return
+          case 'compositionupdate':
+            {
+              // Add current node to the updater
+              const { anchorNode } = window.getSelection()
+              updater.addNode(anchorNode)
+            }
+            return
+          case 'compositionend':
+            return
+        }
+      },
+    },
+    /**
+     * Handle `enter`.
+     *
+     * When enter is detected, we are able to `preventDefault` on the event.
+     * We wait until the action completes before we `reconcile` the edit then
+     * call `splitBlock`.
+     *
+     * - compositionend
+     * - keydown : Unidentified
+     * - keydown : Enter
+     */
     {
       name: 'enter',
       onTrigger(event, { editor }) {
@@ -55,6 +152,154 @@ function Android9Plugin() {
           reconcile(window, editor, { from: 'onKeyDown:enter' })
           editor.splitBlock()
         }
+      },
+    },
+    /**
+     * Handle `space`
+     *
+     * TODO: Find out if the last data is a " ". Doesn't display. Add quotes
+     * to logger.
+     *
+     * - compositionend
+     * - keydown : Unidentified
+     * - beforeinput : insertText :
+     * - textInput : undefined :
+     * - input : insertText :
+     */
+    {
+      name: 'space',
+      onTrigger(event, { editor }) {
+        if (event.type !== 'input') return
+        const { nativeEvent } = event
+        if (nativeEvent.inputType !== 'insertText') return
+        if (nativeEvent.data !== ' ') return
+
+        if (reconciler) reconciler.cancel()
+        if (deleter) deleter.cancel()
+
+        reconcile(window, editor, { from: 'onInput:space' })
+        return true
+      },
+    },
+    /**
+     * Handle `instant-composition`
+     *
+     * Some compositions like
+     */
+    {
+      name: 'instant-composition',
+    },
+    /**
+     * Handle `suggestion`
+     *
+     * Example signature
+     *
+     * - compositionend
+     * - keydown
+     * - beforeinput : deleteContentBackward
+     * - input       : deleteContentBackward
+     * - beforeinput : deleteContentBackward
+     * - input       : deleteContentBackward
+     * - keydown
+     * - beforeinput : insertText : Middletown
+     * - textInput   : undefined  : Middletown
+     * - input       : insertText : Middletown
+     * - keydown
+     *
+     * To disambiguate from `backspace` we look for a backspace and a
+     * `textInput`
+     */
+    {
+      name: 'suggestion',
+      onFinish(events, { editor }) {
+        const deleteEvent = events.find(event => {
+          if (event.type !== 'input') return
+          if (event.nativeEvent.inputType !== 'deleteContentBackward') return
+          return true
+        })
+        if (deleteEvent == null) return
+        // TODO:
+        // We can start searching after the earlier find instead of searching
+        // all the events from scratch again.
+        const textinputEvent = events.find(event => event.type === 'textInput')
+        if (textinputEvent == null) return
+        reconcile(window, editor, { from: 'onInput:space' })
+        return true
+      },
+    },
+    /**
+     * Handle `backspace`
+     *
+     * - compositionend (sometimes)
+     * - keydown
+     * - beforeinput
+     * - input : deleteContentBackward
+     */
+    {
+      name: 'backspace',
+      onSetup({ editor }) {
+        console.log('take a snapshot')
+        keyDownSnapshot = new DomSnapshot(window, editor, {
+          before: true,
+        })
+      },
+      onFinish(events, { editor }) {
+        const deleteEvent = events.find(event => {
+          return (
+            event.type === 'input' &&
+            event.nativeEvent.inputType === 'deleteContentBackward'
+          )
+        })
+        if (deleteEvent == null) return
+        keyDownSnapshot.apply(editor)
+        editor.deleteBackward()
+        return true
+      },
+    },
+    /**
+     * Handle none composition input
+     *
+     * In specific cases like typing punctuation, we will get an `input`
+     * without a composition.
+     *
+     * When this happens, we allow the input to go through and then we
+     * reconcile against the DOM at the end of the action.
+     *
+     * - keydown
+     * - beforeinput
+     * - textinput
+     * - input
+     */
+    {
+      name: 'none-composition-input',
+      onTrigger(event, { editor }) {
+        if (event.type !== 'input') return
+        if (status == COMPOSING) return
+
+        const { anchorNode } = window.getSelection()
+        nodes.add(anchorNode)
+
+        return function() {
+          reconcile(window, editor, { from: 'none-composition-input' })
+        }
+      },
+    },
+    {
+      name: 'default-composition-end',
+      onFinish(events, { editor }) {
+        const compositionEndEvent = events.find(event => {
+          return event.type === 'compositionend'
+        })
+        if (!compositionEndEvent) return
+        // const window = getWindow(event.target)
+        const domSelection = window.getSelection()
+        const { anchorNode } = domSelection
+
+        nodes.add(anchorNode)
+
+        status = NONE
+        reconcile(window, editor, { from: 'onCompositionEnd:reconciler' })
+        return true
       },
     },
   ])
@@ -75,19 +320,6 @@ function Android9Plugin() {
    */
 
   const nodes = new window.Set()
-
-  /**
-   * Keep a snapshot after a composition end for API 26/27. If a `beforeInput`
-   * gets called with data that ends in an ENTER then we need to use this
-   * snapshot to revert the DOM so that React doesn't get out of sync with the
-   * DOM. We also need to cancel the `reconcile` operation as it interferes in
-   * certain scenarios like hitting 'enter' at the end of a word.
-   *
-   * @type {DomSnapshot} [compositionEndSnapshot]
-   
-   */
-
-  let compositionEndSnapshot = null
 
   /**
    * When there is a `compositionEnd` we ened to reconcile Slate's Document
@@ -207,7 +439,7 @@ function Android9Plugin() {
    * @param {Editor} editor
    * @param {function} next
    */
-  
+
   function onBeforeInputNative(event, editor, next) {
     debug('onBeforeInputNative', {
       event,
@@ -258,18 +490,18 @@ function Android9Plugin() {
     debug('onCompositionEnd', { event })
     actionManager.trigger(event, editor)
 
-    const window = getWindow(event.target)
-    const domSelection = window.getSelection()
-    const { anchorNode } = domSelection
+    // const window = getWindow(event.target)
+    // const domSelection = window.getSelection()
+    // const { anchorNode } = domSelection
 
-    compositionEndAction = 'reconcile'
-    nodes.add(anchorNode)
+    // compositionEndAction = 'reconcile'
+    // nodes.add(anchorNode)
 
-    reconciler = new DelayedExecutor(window, () => {
-      status = NONE
-      reconcile(window, editor, { from: 'onCompositionEnd:reconciler' })
-      compositionEndAction = null
-    })
+    // reconciler = new DelayedExecutor(window, () => {
+    //   status = NONE
+    //   reconcile(window, editor, { from: 'onCompositionEnd:reconciler' })
+    //   compositionEndAction = null
+    // })
   }
 
   /**
@@ -283,15 +515,7 @@ function Android9Plugin() {
   function onCompositionStart(event, editor, next) {
     debug('onCompositionStart', { event })
 
-    // Setup the updater by clearing it and adding the current cursor position
-    // as the first node to look at.
-    updater.clear()
-    const { anchorNode } = window.getSelection()
-    updater.addNode(anchorNode)
-
     actionManager.trigger(event, editor)
-    status = COMPOSING
-    nodes.clear()
   }
 
   /**
@@ -303,16 +527,12 @@ function Android9Plugin() {
    */
 
   function onCompositionUpdate(event, editor, next) {
-    // Add current node to the updater
-    const { anchorNode } = window.getSelection()
-    updater.addNode(anchorNode)
-
     actionManager.trigger(event, editor)
     debug('onCompositionUpdate', { event })
   }
 
   /**
-   * On input.
+   * Handle `input` event.
    *
    * @param  {Event} event
    * @param  {Editor} editor
@@ -326,73 +546,6 @@ function Android9Plugin() {
       e: pick(event, ['data', 'nativeEvent', 'inputType', 'isComposing']),
     })
     actionManager.trigger(event, editor)
-
-    const { nativeEvent } = event
-
-    // NOTE API 28:
-    // When a user hits space and then backspace in `middle` we end up
-    // with `midle`.
-    //
-    // This is because when the user hits space, the composition is not
-    // ended because `compositionEnd` is not called yet. When backspace is
-    // hit, the `compositionEnd` is called. We need to revert the DOM but
-    // the reconciler has not had a chance to run from the
-    // `compositionEnd` because it is set to run on the next
-    // `requestAnimationFrame`. When the backspace is carried out on the
-    // Slate Value, Slate doesn't know about the space yet so the
-    // backspace is carried out without the space cuasing us to lose a
-    // character.
-    //
-    // This fix forces Android to reconcile immediately after hitting
-    // the space.
-    if (nativeEvent.inputType === 'insertText' && nativeEvent.data === ' ') {
-      if (reconciler) reconciler.cancel()
-      if (deleter) deleter.cancel()
-      reconcile(window, editor, { from: 'onInput:space' })
-      return
-    }
-
-    if (nativeEvent.inputType === 'deleteContentBackward') {
-      debug('onInput:delete', { keyDownSnapshot })
-      const window = getWindow(event.target)
-      if (reconciler) reconciler.cancel()
-      if (deleter) deleter.cancel()
-
-      deleter = new DelayedExecutor(
-        window,
-        () => {
-          debug('onInput:delete:callback', { keyDownSnapshot })
-          keyDownSnapshot.apply(editor)
-          editor.deleteBackward()
-          deleter = null
-        },
-        {
-          onCancel() {
-            deleter = null
-          },
-        }
-      )
-      return
-    }
-
-    if (status === COMPOSING) {
-      const { anchorNode } = window.getSelection()
-      nodes.add(anchorNode)
-      return
-    }
-
-    // Some keys like '.' are input without compositions. This happens
-    // in API28. It might be happening in API 27 as well. Check by typing
-    // `It me. No.` On a blank line.
-    debug('onInput:fallback')
-    const { anchorNode } = window.getSelection()
-    nodes.add(anchorNode)
-
-    window.requestAnimationFrame(() => {
-      debug('onInput:fallback:callback')
-      reconcile(window, editor, { from: 'onInput:fallback' })
-    })
-    return
   }
 
   /**
@@ -437,14 +590,14 @@ function Android9Plugin() {
     //   return
     // }
 
-    // We need to take a snapshot of the current selection and the
-    // element before when the user hits the backspace key. This is because
-    // we only know if the user hit backspace if the `onInput` event that
-    // follows has an `inputType` of `deleteContentBackward`. At that time
-    // it's too late to stop the event.
-    keyDownSnapshot = new DomSnapshot(window, editor, {
-      before: true,
-    })
+    // // We need to take a snapshot of the current selection and the
+    // // element before when the user hits the backspace key. This is because
+    // // we only know if the user hit backspace if the `onInput` event that
+    // // follows has an `inputType` of `deleteContentBackward`. At that time
+    // // it's too late to stop the event.
+    // keyDownSnapshot = new DomSnapshot(window, editor, {
+    //   before: true,
+    // })
 
     debug('onKeyDown:snapshot', { keyDownSnapshot })
   }

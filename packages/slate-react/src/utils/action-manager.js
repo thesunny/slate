@@ -53,13 +53,14 @@ function ActionManager(options, handlers) {
    */
 
   let finishHandler = null
+  let finishName = null
 
   /**
    * Call all `onSetup` handlers
    */
 
   function setup() {
-    setupHandlers.forEach(handler => handler.onSetup())
+    setupHandlers.forEach(handler => handler.onSetup(options))
   }
 
   /**
@@ -92,6 +93,7 @@ function ActionManager(options, handlers) {
     events.length = 0
     isActionHandled = false
     finishHandler = null
+    finishName = null
     isFinished = true
     teardown()
   }
@@ -136,7 +138,10 @@ function ActionManager(options, handlers) {
       // If the result of the handler's `onTrigger` is a function, then that
       // function needs to be called during the `finish` phase. This function
       // is called the `finishHandler`
-      if (isFunction(result)) finishHandler = result
+      if (isFunction(result)) {
+        finishHandler = result
+        finishName = handler.name
+      }
       return result
     })
 
@@ -159,7 +164,10 @@ function ActionManager(options, handlers) {
 
     // If the action was handled in an `onTrigger`, reset and quit
     if (isActionHandled) {
-      if (finishHandler) finishHandler()
+      if (finishHandler) {
+        debug(`finish:trigger:${finishName}`)
+        finishHandler()
+      }
       reset()
       return
     }
