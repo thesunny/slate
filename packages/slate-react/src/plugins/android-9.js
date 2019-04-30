@@ -98,8 +98,7 @@ function Android9Plugin() {
             // Setup the updater by clearing it and adding the current cursor position
             // as the first node to look at.
             updater.clear()
-            const { anchorNode } = window.getSelection()
-            updater.addNode(anchorNode)
+            updater.addNode()
             return
           case 'input':
             {
@@ -138,8 +137,6 @@ function Android9Plugin() {
         if (event.type !== 'keydown') return
         if (event.key !== 'Enter') return
         event.preventDefault()
-        if (reconciler) reconciler.cancel()
-        if (deleter) deleter.cancel()
         return () => {
           reconcile(window, editor, { from: 'onKeyDown:enter' })
           editor.splitBlock()
@@ -315,6 +312,7 @@ function Android9Plugin() {
         // revert to before the deletes started
         snapshot.apply(editor)
         // delete the same number of times that Android told us it did
+        console.log('delete', deleteEvents.length)
         editor.deleteBackward(deleteEvents.length)
         return true
       },
@@ -392,18 +390,6 @@ function Android9Plugin() {
 
   const nodes = new window.Set()
 
-  /**
-   * When there is a `compositionEnd` we ened to reconcile Slate's Document
-   * with the DOM. The `reconciler` is an instance of `Executor` that does
-   * this for us. It is created on every `compositionEnd` and executes on the
-   * next `requestAnimationFrame`. The `DelayedExecutor` can be cancelled and resumed
-   * which some methods do.
-   *
-   * @type {DelayedExecutor}
-   */
-
-  let reconciler = null
-
   let updater = new Reconciler()
 
   /**
@@ -416,18 +402,6 @@ function Android9Plugin() {
    */
 
   let snapshot = null
-
-  /**
-   * The deleter is an instace of `DelayedExecutor` that will execute a delete
-   * operation on the next `requestAnimationFrame`. It has to wait because
-   * we need Android to finish all of its DOM operations to do with deletion
-   * before we revert them to a Snapshot. After reverting, we then execute
-   * Slate's version of delete.
-   *
-   * @type {DelayedExecutor}
-   */
-
-  let deleter = null
 
   /**
    * Because Slate implements its own event handler for `beforeInput` in
@@ -529,17 +503,6 @@ function Android9Plugin() {
       e: pick(event, ['data', 'isComposing']),
     })
     actionManager.trigger(event, editor)
-
-    // If a `beforeInput` event fires after an `input:deleteContentBackward`
-    // event, it appears to be a good indicator that it is some sort of
-    // special combined Android event. If this is the case, then we don't
-    // want to have a deletion to happen, we just want to wait until Android
-    // has done its thing and then at the end we just want to reconcile.
-    if (deleter) {
-      debug('onBeforeInputNative', 'cancelled deleter')
-      deleter.cancel()
-      reconciler.resume()
-    }
   }
 
   /**
@@ -571,19 +534,6 @@ function Android9Plugin() {
   function onCompositionEnd(event, editor, next) {
     debug('onCompositionEnd', { event })
     actionManager.trigger(event, editor)
-
-    // const window = getWindow(event.target)
-    // const domSelection = window.getSelection()
-    // const { anchorNode } = domSelection
-
-    // compositionEndAction = 'reconcile'
-    // nodes.add(anchorNode)
-
-    // reconciler = new DelayedExecutor(window, () => {
-    //   status = NONE
-    //   reconcile(window, editor, { from: 'onCompositionEnd:reconciler' })
-    //   compositionEndAction = null
-    // })
   }
 
   /**
@@ -656,32 +606,6 @@ function Android9Plugin() {
       ]),
     })
     actionManager.trigger(event, editor)
-
-    const window = getWindow(event.target)
-
-    // if (event.key === 'Enter') {
-    //   debug('onKeyDown:enter')
-    //   event.preventDefault()
-    //   if (reconciler) reconciler.cancel()
-    //   if (deleter) deleter.cancel()
-
-    //   window.requestAnimationFrame(() => {
-    //     reconcile(window, editor, { from: 'onKeyDown:enter' })
-    //     editor.splitBlock()
-    //   })
-    //   return
-    // }
-
-    // // We need to take a snapshot of the current selection and the
-    // // element before when the user hits the backspace key. This is because
-    // // we only know if the user hit backspace if the `onInput` event that
-    // // follows has an `inputType` of `deleteContentBackward`. At that time
-    // // it's too late to stop the event.
-    // keyDownSnapshot = new DomSnapshot(window, editor, {
-    //   before: true,
-    // })
-
-    // debug('onKeyDown:snapshot', { keyDownSnapshot })
   }
 
   /**
