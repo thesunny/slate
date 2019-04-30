@@ -44,7 +44,7 @@ function Reconciler() {
    * @param {Selection} selection?
    */
 
-  function run(window, editor, selection = null) {
+  function apply(window, editor, selection = null) {
     if (selection == null) {
       const domSelection = window.getSelection()
     }
@@ -63,7 +63,7 @@ function Reconciler() {
     clear()
   }
 
-  return { clear, addNode, run }
+  return { clear, addNode, apply }
 }
 
 export default Reconciler

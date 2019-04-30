@@ -497,11 +497,7 @@ function Android9Plugin() {
    */
 
   function onBeforeInputNative(event, editor, next) {
-    debug('onBeforeInputNative', {
-      event,
-      status,
-      e: pick(event, ['data', 'isComposing']),
-    })
+    debug('onBeforeInputNative')
     actionManager.trigger(event, editor)
   }
 
@@ -532,7 +528,7 @@ function Android9Plugin() {
    */
 
   function onCompositionEnd(event, editor, next) {
-    debug('onCompositionEnd', { event })
+    debug('onCompositionEnd')
     actionManager.trigger(event, editor)
   }
 
@@ -545,8 +541,7 @@ function Android9Plugin() {
    */
 
   function onCompositionStart(event, editor, next) {
-    debug('onCompositionStart', { event })
-
+    debug('onCompositionStart')
     actionManager.trigger(event, editor)
   }
 
@@ -560,7 +555,7 @@ function Android9Plugin() {
 
   function onCompositionUpdate(event, editor, next) {
     actionManager.trigger(event, editor)
-    debug('onCompositionUpdate', { event })
+    debug('onCompositionUpdate')
   }
 
   /**
@@ -572,11 +567,7 @@ function Android9Plugin() {
    */
 
   function onInput(event, editor, next) {
-    debug('onInput', {
-      event,
-      status,
-      e: pick(event, ['data', 'nativeEvent', 'inputType', 'isComposing']),
-    })
+    debug('onInput')
     actionManager.trigger(event, editor)
   }
 
@@ -589,22 +580,7 @@ function Android9Plugin() {
    */
 
   function onKeyDown(event, editor, next) {
-    debug('onKeyDown', {
-      event,
-      status,
-      e: pick(event, [
-        'char',
-        'charCode',
-        'code',
-        'key',
-        'keyCode',
-        'keyIdentifier',
-        'keyLocation',
-        'location',
-        'nativeEvent',
-        'which',
-      ]),
-    })
+    debug('onKeyDown')
     actionManager.trigger(event, editor)
   }
 
