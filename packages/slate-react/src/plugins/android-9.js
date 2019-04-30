@@ -373,10 +373,7 @@ function Android9Plugin() {
   let status = NONE
 
   /**
-   * The set of nodes that we need to process when we next reconcile.
-   * Usually this is soon after the `onCompositionEnd` event.
-   *
-   * @type {Set} set containing Node objects
+   * Reconciler object to reconcile the DOM to Slate's internal Value.
    */
 
   let reconciler = new Reconciler()
@@ -391,40 +388,6 @@ function Android9Plugin() {
    */
 
   let snapshot = null
-
-  // /**
-  //  * Looks at the `nodes` we have collected, usually the things we have edited
-  //  * during the course of a composition, and then updates Slate's internal
-  //  * Document based on the text values in these DOM nodes and also updates
-  //  * Slate's Selection based on the current cursor position in the Editor.
-  //  *
-  //  * @param {Window} window
-  //  * @param {Editor} editor
-  //  * @param {String} options.from - where reconcile was called from for debug
-  //  */
-
-  // function reconcile(window, editor, { from, selection }) {
-  //   console.log('reconcile', { from, selection })
-
-  //   // WARNING:
-  //   // Putting `nodes.add(anchorNode)` here will break reconciliation if you are
-  //   // reverting to a snapshot immediately before. The likely cause is the
-  //   // selection is in the wrong place.
-
-  //   debug.reconcile({ from })
-  //   const domSelection = window.getSelection()
-
-  //   nodes.forEach(node => {
-  //     setTextFromDomNode(window, editor, node)
-  //   })
-
-  //   if (selection) {
-  //     editor.select(selection)
-  //   } else {
-  //     setSelectionFromDom(window, editor, domSelection)
-  //   }
-  //   nodes.clear()
-  // }
 
   /**
    * Triage `beforeinput` and `textinput`.
