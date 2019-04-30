@@ -1,8 +1,15 @@
 import { IS_ANDROID, ANDROID_API_VERSION } from 'slate-dev-environment'
 import AndroidPlugin from './android'
+import Android8Plugin from './android-8'
 import Android9Plugin from './android-9'
 import AfterPlugin from './after'
 import BeforePlugin from './before'
+
+const API_TO_PLUGIN = {
+  28: Android9Plugin,
+  27: Android8Plugin,
+  26: Android8Plugin,
+}
 
 /**
  * A plugin that adds the browser-specific logic to the editor.
@@ -13,15 +20,16 @@ import BeforePlugin from './before'
 
 function DOMPlugin(options = {}) {
   const { plugins = [] } = options
-  // Add Android specific handling separately before it gets to the other
-  // plugins because it is specific (other browser don't need it) and finicky
-  // (it has to come before other plugins to work).
-  const beforeBeforePlugins = IS_ANDROID
-    ? ANDROID_API_VERSION === 28 ? [Android9Plugin()] : [AndroidPlugin()]
-    : []
+  const androidPlugins = []
+  if (IS_ANDROID) {
+    const AndroidPlugin = API_TO_PLUGIN[ANDROID_API_VERSION]
+    if (AndroidPlugin) {
+      androidPlugins.push(AndroidPlugin())
+    }
+  }
   const beforePlugin = BeforePlugin()
   const afterPlugin = AfterPlugin()
-  return [...beforeBeforePlugins, beforePlugin, ...plugins, afterPlugin]
+  return [...androidPlugins, beforePlugin, ...plugins, afterPlugin]
 }
 
 /**
