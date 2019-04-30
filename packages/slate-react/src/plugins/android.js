@@ -340,40 +340,6 @@ function AndroidPlugin() {
       case 28:
         const { nativeEvent } = event
 
-        if (ANDROID_API_VERSION === 28) {
-          // NOTE API 28:
-          // When a user hits space and then backspace in `middle` we end up
-          // with `midle`.
-          //
-          // This is because when the user hits space, the composition is not
-          // ended because `compositionEnd` is not called yet. When backspace is
-          // hit, the `compositionEnd` is called. We need to revert the DOM but
-          // the reconciler has not had a chance to run from the
-          // `compositionEnd` because it is set to run on the next
-          // `requestAnimationFrame`. When the backspace is carried out on the
-          // Slate Value, Slate doesn't know about the space yet so the
-          // backspace is carried out without the space cuasing us to lose a
-          // character.
-          //
-          // This fix forces Android to reconcile immediately after hitting
-          // the space.
-          //
-          // NOTE API 27:
-          // It is confirmed that this bug does not present itself on API27.
-          // A space fires a `compositionEnd` (as well as other events including
-          // an input that is a delete) so the reconciliation happens.
-          //
-          if (
-            nativeEvent.inputType === 'insertText' &&
-            nativeEvent.data === ' '
-          ) {
-            if (reconciler) reconciler.cancel()
-            if (deleter) deleter.cancel()
-            reconcile(window, editor, { from: 'onInput:space' })
-            return
-          }
-        }
-
         if (ANDROID_API_VERSION === 26 || ANDROID_API_VERSION === 27) {
           if (compositionEndAction === 'period') {
             debug('onInput:period:abort')
@@ -416,21 +382,6 @@ function AndroidPlugin() {
         if (status === COMPOSING) {
           const { anchorNode } = window.getSelection()
           nodes.add(anchorNode)
-          return
-        }
-
-        // Some keys like '.' are input without compositions. This happens
-        // in API28. It might be happening in API 27 as well. Check by typing
-        // `It me. No.` On a blank line.
-        if (ANDROID_API_VERSION === 28) {
-          debug('onInput:fallback')
-          const { anchorNode } = window.getSelection()
-          nodes.add(anchorNode)
-
-          window.requestAnimationFrame(() => {
-            debug('onInput:fallback:callback')
-            reconcile(window, editor, { from: 'onInput:fallback' })
-          })
           return
         }
 
@@ -494,6 +445,7 @@ function AndroidPlugin() {
         break
       case 26:
       case 27:
+        // HANDLED IN ANDROID-8 NOW
         if (event.key === 'Enter') {
           debug('onKeyDown:enter', {})
 
@@ -535,37 +487,6 @@ function AndroidPlugin() {
         // If we let 'Enter' through it breaks handling of hitting
         // enter at the beginning of a word so we need to stop it.
         break
-      case 28:
-        {
-          if (event.key === 'Enter') {
-            debug('onKeyDown:enter')
-            event.preventDefault()
-            if (reconciler) reconciler.cancel()
-            if (deleter) deleter.cancel()
-
-            window.requestAnimationFrame(() => {
-              reconcile(window, editor, { from: 'onKeyDown:enter' })
-              editor.splitBlock()
-            })
-            return
-          }
-
-          // We need to take a snapshot of the current selection and the
-          // element before when the user hits the backspace key. This is because
-          // we only know if the user hit backspace if the `onInput` event that
-          // follows has an `inputType` of `deleteContentBackward`. At that time
-          // it's too late to stop the event.
-          keyDownSnapshot = new DomSnapshot(window, editor, {
-            before: true,
-          })
-
-          debug('onKeyDown:snapshot', { keyDownSnapshot })
-        }
-
-        // If we let 'Enter' through it breaks handling of hitting
-        // enter at the beginning of a word so we need to stop it.
-        break
-
       default:
         if (status !== COMPOSING) {
           next()

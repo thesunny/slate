@@ -109,26 +109,26 @@ function Android9Plugin() {
      * We cannot match in `onTrigger` because the `compositionEnd` must be
      * matched to disambiguate from the implicit space.
      */
-    {
-      name: 'composition-end-space',
-      onFinish(events, { editor }) {
-        const compositionEndEvent = events.find(
-          event => event.type === 'compositionEnd'
-        )
-        if (!compositionEndEvent) return
-        const spaceEvent = events.find(
-          event => event.type === 'textInput' && event.nativeEvent.data === ' '
-        )
-        if (!spaceEvent) return
-        reconciler.addNode()
-        const selection = snapshot.apply(editor)
-        reconciler.apply(window, editor, {
-          from: 'composition-end-space',
-          selection,
-        })
-        editor.insertText(' ')
-      },
-    },
+    // {
+    //   name: 'composition-end-space',
+    //   onFinish(events, { editor }) {
+    //     const compositionEndEvent = events.find(
+    //       event => event.type === 'compositionEnd'
+    //     )
+    //     if (!compositionEndEvent) return
+    //     const spaceEvent = events.find(
+    //       event => event.type === 'textInput' && event.nativeEvent.data === ' '
+    //     )
+    //     if (!spaceEvent) return
+    //     reconciler.addNode()
+    //     const selection = snapshot.apply(editor)
+    //     reconciler.apply(window, editor, {
+    //       from: 'composition-end-space',
+    //       selection,
+    //     })
+    //     editor.insertText(' ')
+    //   },
+    // },
     /**
      * Handle `edit-suggestion`
      *
