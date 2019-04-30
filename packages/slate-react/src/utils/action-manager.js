@@ -81,8 +81,13 @@ function ActionManager(options, handlers) {
     clearTimeout(timeoutId)
     // IMPORTANT!
     // If the timeout value is set to `0` (or very low) inserting the text
-    // `It is. No.` will end up with the `.` missing. This is because Android
-    // leaves time between
+    // `It is. No.` will end up with the `.` missing.
+    // 
+    // The scenario plays out when you try to reconcile the `.` too quickly.
+    // Then Android reacts to this DOM change which (I'm guessing) it thinks
+    // over-rode what Android thought it was trying to do.
+    // 
+    // It then tries to delete the `No` word and re-insert the `.`.
     timeoutId = setTimeout(finish, 100)
   }
 

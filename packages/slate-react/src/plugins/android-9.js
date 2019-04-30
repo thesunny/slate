@@ -182,14 +182,6 @@ function Android9Plugin() {
       },
     },
     /**
-     * Handle `instant-composition`
-     *
-     * Some compositions like
-     */
-    {
-      name: 'instant-composition',
-    },
-    /**
      * Handle `edit-suggestion`
      *
      * Example signature
@@ -228,33 +220,36 @@ function Android9Plugin() {
       },
     },
     /**
-     * Handle `period-at-end-of-composition-sometimes`
-     *
-     * This requires a very specific set of circumstances. Type on a new line
-     * `It is. No.` and the `.` will disappear. Does not happen with a comma.
-     *
-     * Sometimes it can happen at beginning of line if you type `It.` only when
-     * the `It` is underlined while typing and it doesn't always happen.
-     *
-     * It fires two `actions` (i.e. separated by enough time to trigger two
-     * clock ticks on `setTimeout` or `requestAnimationFrame`).
+     * Handle `insert-period-at-end-of-line`
      *
      * - compositionend
      * - keydown "Unidentified"
      * - beforeinput:insertText "."
      * - textInput "."
      *
-     * Followed by:
+     * This works by doing a `reconcile` and although there is no code
+     * specifically in here, it also has the special need that the `reconcile`
+     * be delayed by some time. We use 100ms. The delay code is in ActionManager
+     * and if deleted will break this code here (there is a comment in
+     * ActionManager on why there is a delay).
+     *
+     * It is triggered by typing `It is. No.` and the `.` (or more) will
+     * disappear.
+     *
+     * If we fire `reconcile` too soon, we get a signature like this.
      *
      * - keydown "Unidentified"
      * - beforeinput:deleteContentBackward
      * - input:deleteContentBackward
-     * - beforeinput:delteContentBackward
+     * - beforeinput:deleteContentBackward
      * - input:deleteContentBackward
      * - keydown "Unidentified"
      * - compositionstart
      * - beforeinput:insertCompositionText "No."
      * - input:insertCompositionText "No."
+     *
+     * Sometimes it can happen at beginning of line if you type `It.` only when
+     * the `It` is underlined while typing and it doesn't always happen.
      */
     {
       name: 'insert-period-at-end-of-line',
@@ -263,6 +258,10 @@ function Android9Plugin() {
         if (event.data !== '.') return
         const { editor } = options
         return function() {
+          // IMPORTANT!
+          // Must be delayed by around 100ms which we do in ActionManager.
+          // If the delay is not present, this will delete some characters at
+          // the end.
           reconcile(window, editor, {
             from: 'insert-period-at-end-of-line',
           })
@@ -270,7 +269,7 @@ function Android9Plugin() {
       },
     },
     /**
-     * Handle `insert-suggestion-or-punctuation`
+     * Handle `insert-suggestion-or-space-or-punctuation`
      *
      * Example signature
      *
@@ -278,12 +277,6 @@ function Android9Plugin() {
      * - beforeinput:insertText "School"
      * - textInput "School"
      * - input:insertText "School"
-     *
-     * WORKING ON THIS! There is no `textInput` on the composition based
-     * inputs. A good way to disambiguate. We could potentially disambiguate by
-     * looking to see if we are in a composition as well but test to see if
-     * this is true.
-     *
      */
     {
       name: 'insert-suggestion-or-space-or-punctuation',
@@ -296,11 +289,6 @@ function Android9Plugin() {
           reconcile(window, editor, {
             from: 'insert-suggestion-or-space-or-punctuation',
           })
-          // setTimeout(() => {
-          //   console.log(
-          //     'one tick after insert-suggestion-or-space-or-punctuation'
-          //   )
-          // })
         }
       },
     },
@@ -332,69 +320,6 @@ function Android9Plugin() {
       },
     },
     /**
-     * Handle two gestures
-     *
-     * Signature for "hello" "there" (no typed space)
-     *
-     * - keydown "Unidentified"
-     * - compositionstart
-     * - beforeinput:insertCompositionText "Hello"
-     * - input:insertCompositionText "Hello"
-     *
-     * Then:
-     *
-     * - compositionend
-     * - TEARDOWN/SETUP
-     * - keydown "Unidentified"
-     * - beforeinput:insertText " "
-     * - textInput " "
-     *
-     */
-    /**
-     * Handle `period-at-end-of-composition-sometimes`
-     *
-     * This requires a very specific set of circumstances. Type on a new line
-     * `It is. No.` and the `.` will disappear. Does not happen with a comma.
-     *
-     * Sometimes it can happen at beginning of line if you type `It.` only when
-     * the `It` is underlined while typing and it doesn't always happen.
-     *
-     * It fires two `actions` (i.e. separated by enough time to trigger two
-     * clock ticks on `setTimeout` or `requestAnimationFrame`).
-     *
-     * - compositionend
-     * - keydown "Unidentified"
-     * - beforeinput:insertText "."
-     * - textInput "."
-     *
-     * Followed by:
-     *
-     * - keydown "Unidentified"
-     * - beforeinput:deleteContentBackward
-     * - input:deleteContentBackward
-     * - beforeinput:delteContentBackward
-     * - input:deleteContentBackward
-     * - keydown "Unidentified"
-     * - compositionstart
-     * - beforeinput:insertCompositionText "No."
-     * - input:insertCompositionText "No."
-     */
-    // THIS IS CRASHING IN `after` enter enter backspace backspace
-    // {
-    //   name: 'insert-period-at-end-of-line',
-    //   onTrigger(event, { editor }) {
-    //     if (event.type !== 'input') return
-    //     if (status == COMPOSING) return
-
-    //     const { anchorNode } = window.getSelection()
-    //     nodes.add(anchorNode)
-
-    //     return function() {
-    //       reconcile(window, editor, { from: 'none-composition-input' })
-    //     }
-    //   },
-    // },
-    /**
      * Signature of typing on end of word followed by signature of composition
      *
      * Typing at end of word "it" with an "s" signature:
@@ -409,6 +334,28 @@ function Android9Plugin() {
      *
      * - compositionend
      *
+     * Handle two gestures with an implied space
+     *
+     * Signature for "hello" "there" (no typed space)
+     *
+     * - keydown "Unidentified"
+     * - compositionstart
+     * - beforeinput:insertCompositionText "Hello"
+     * - input:insertCompositionText "Hello"
+     *
+     * Then:
+     *
+     * - keydown "Unidentified"
+     * - beforeinput:insertText " "
+     * - textInput " "
+     * - input:insertText " "
+     * - keydown "Unidentified"
+     * - beforeinput:insertCompositionText "there"
+     * - input:insertCompositionText "there"
+     *
+     * Then:
+     *
+     * - compositionend
      */
     {
       name: 'default-composition-end',
