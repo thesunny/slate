@@ -30,8 +30,9 @@ function Reconciler() {
    * @param {Node} node
    */
 
-  function addNode(node) {
-    nodes.add(node)
+  function addNode() {
+    const { anchorNode } = window.getSelection()
+    nodes.add(anchorNode)
   }
 
   /**
@@ -44,10 +45,11 @@ function Reconciler() {
    * @param {Selection} selection?
    */
 
-  function apply(window, editor, selection = null) {
-    if (selection == null) {
-      const domSelection = window.getSelection()
-    }
+  function apply(window, editor, { from, selection } = {}) {
+    console.log('Reconciler.apply', { from })
+
+    // Set the domSelection if there isn't a Slate selection
+    const domSelection = selection ? null : window.getSelection()
 
     // Reconcile each node
     nodes.forEach(node => setTextFromDomNode(window, editor, node))

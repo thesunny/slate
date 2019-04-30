@@ -93,27 +93,18 @@ function Android9Plugin() {
         switch (event.type) {
           case 'compositionstart':
             status = COMPOSING
-            nodes.clear()
-
             // Setup the updater by clearing it and adding the current cursor position
             // as the first node to look at.
-            updater.clear()
-            updater.addNode()
+            reconciler.clear()
+            reconciler.addNode()
             return
           case 'input':
-            {
-              if (status === COMPOSING) {
-                const { anchorNode } = window.getSelection()
-                nodes.add(anchorNode)
-              }
+            if (status === COMPOSING) {
+              reconciler.addNode()
             }
             return
           case 'compositionupdate':
-            {
-              // Add current node to the updater
-              const { anchorNode } = window.getSelection()
-              updater.addNode(anchorNode)
-            }
+            reconciler.addNow()
             return
           case 'compositionend':
             return
@@ -138,7 +129,7 @@ function Android9Plugin() {
         if (event.key !== 'Enter') return
         event.preventDefault()
         return () => {
-          reconcile(window, editor, { from: 'onKeyDown:enter' })
+          reconciler.apply(window, editor, { from: 'onKeyDown:enter' })
           editor.splitBlock()
         }
       },
@@ -171,10 +162,12 @@ function Android9Plugin() {
           event => event.type === 'textInput' && event.nativeEvent.data === ' '
         )
         if (!spaceEvent) return
-        const { anchorNode } = window.getSelection()
-        nodes.add(anchorNode)
+        reconciler.addNode()
         const selection = snapshot.apply(editor)
-        reconcile(window, editor, { from: 'composition-end-space', selection })
+        reconciler.apply(window, editor, {
+          from: 'composition-end-space',
+          selection,
+        })
         editor.insertText(' ')
       },
     },
@@ -212,7 +205,7 @@ function Android9Plugin() {
         // all the events from scratch again.
         const textinputEvent = events.find(event => event.type === 'textInput')
         if (textinputEvent == null) return
-        reconcile(window, editor, { from: 'suggestion' })
+        reconciler.apply(window, editor, { from: 'suggestion' })
         return true
       },
     },
@@ -259,7 +252,7 @@ function Android9Plugin() {
           // Must be delayed by around 100ms which we do in ActionManager.
           // If the delay is not present, this will delete some characters at
           // the end.
-          reconcile(window, editor, {
+          reconciler.apply(window, editor, {
             from: 'insert-period-at-end-of-line',
           })
         }
@@ -280,10 +273,9 @@ function Android9Plugin() {
       onTrigger(event, { editor }) {
         if (event.type !== 'textInput') return
         if (status === NONE) return
-        const { anchorNode } = window.getSelection()
-        nodes.add(anchorNode)
+        reconciler.addNode()
         return function() {
-          reconcile(window, editor, {
+          reconciler.apply(window, editor, {
             from: 'insert-suggestion-or-space-or-punctuation',
           })
         }
@@ -312,7 +304,6 @@ function Android9Plugin() {
         // revert to before the deletes started
         snapshot.apply(editor)
         // delete the same number of times that Android told us it did
-        console.log('delete', deleteEvents.length)
         editor.deleteBackward(deleteEvents.length)
         return true
       },
@@ -367,7 +358,7 @@ function Android9Plugin() {
         })
         if (!compositionEndEvent) return
         status = NONE
-        reconcile(window, editor, { from: 'default-composition-end' })
+        reconciler.apply(window, editor, { from: 'default-composition-end' })
         return true
       },
     },
@@ -388,9 +379,7 @@ function Android9Plugin() {
    * @type {Set} set containing Node objects
    */
 
-  const nodes = new window.Set()
-
-  let updater = new Reconciler()
+  let reconciler = new Reconciler()
 
   /**
    * A snapshot that gets taken when there is a `keydown` event in API26/27.
@@ -403,69 +392,39 @@ function Android9Plugin() {
 
   let snapshot = null
 
-  /**
-   * Because Slate implements its own event handler for `beforeInput` in
-   * addition to React's version, we actually get two. If we cancel the
-   * first native version, the React one will still fire. We set this to
-   * `true` if we don't want that to happen. Remember that when we prevent it,
-   * we need to tell React to `preventDefault` so the event doesn't continue
-   * through React's event system.
-   *
-   * type {Boolean}
-   */
+  // /**
+  //  * Looks at the `nodes` we have collected, usually the things we have edited
+  //  * during the course of a composition, and then updates Slate's internal
+  //  * Document based on the text values in these DOM nodes and also updates
+  //  * Slate's Selection based on the current cursor position in the Editor.
+  //  *
+  //  * @param {Window} window
+  //  * @param {Editor} editor
+  //  * @param {String} options.from - where reconcile was called from for debug
+  //  */
 
-  let preventNextBeforeInput = false
+  // function reconcile(window, editor, { from, selection }) {
+  //   console.log('reconcile', { from, selection })
 
-  /**
-   * When a composition ends, in some API versions we may need to know what we
-   * have learned so far about the composition and what we want to do because of
-   * some actions that may come later.
-   *
-   * For example in API 26/27, if we get a `beforeInput` that tells us that the
-   * input was a `.`, then we want the reconcile to happen even if there are
-   * `onInput:delete` events that follow. In this case, we would set
-   * `compositionEndAction` to `period`. During the `onInput` we would check if
-   * the `compositionEndAction` says `period` and if so we would not start the
-   * `delete` action.
-   *
-   * @type {(String|null)}
-   */
+  //   // WARNING:
+  //   // Putting `nodes.add(anchorNode)` here will break reconciliation if you are
+  //   // reverting to a snapshot immediately before. The likely cause is the
+  //   // selection is in the wrong place.
 
-  let compositionEndAction = null
+  //   debug.reconcile({ from })
+  //   const domSelection = window.getSelection()
 
-  /**
-   * Looks at the `nodes` we have collected, usually the things we have edited
-   * during the course of a composition, and then updates Slate's internal
-   * Document based on the text values in these DOM nodes and also updates
-   * Slate's Selection based on the current cursor position in the Editor.
-   *
-   * @param {Window} window
-   * @param {Editor} editor
-   * @param {String} options.from - where reconcile was called from for debug
-   */
+  //   nodes.forEach(node => {
+  //     setTextFromDomNode(window, editor, node)
+  //   })
 
-  function reconcile(window, editor, { from, selection }) {
-    console.log('reconcile', { from, selection })
-
-    // WARNING:
-    // Putting `nodes.add(anchorNode)` here will break reconciliation if you are
-    // reverting to a snapshot immediately before. The likely cause is the
-    // selection is in the wrong place.
-
-    debug.reconcile({ from })
-    const domSelection = window.getSelection()
-
-    nodes.forEach(node => {
-      setTextFromDomNode(window, editor, node)
-    })
-
-    if (selection) {
-      editor.select(selection)
-    } else {
-      setSelectionFromDom(window, editor, domSelection)
-    }
-    nodes.clear()
-  }
+  //   if (selection) {
+  //     editor.select(selection)
+  //   } else {
+  //     setSelectionFromDom(window, editor, domSelection)
+  //   }
+  //   nodes.clear()
+  // }
 
   /**
    * Triage `beforeinput` and `textinput`.
