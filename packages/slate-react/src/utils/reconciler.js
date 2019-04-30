@@ -37,18 +37,27 @@ function Reconciler() {
   /**
    * Reconcile the changes made to the DOM against Slate's Document.
    *
+   * Takes an optional Slate selection object.
+   *
    * @param {Window} window
    * @param {Editor} editor
+   * @param {Selection} selection?
    */
 
-  function run(window, editor) {
-    const domSelection = window.getSelection()
+  function run(window, editor, selection = null) {
+    if (selection == null) {
+      const domSelection = window.getSelection()
+    }
 
     // Reconcile each node
     nodes.forEach(node => setTextFromDomNode(window, editor, node))
 
-    // Set Slate's selection to what was in the DOM
-    setSelectionFromDom(window, editor, domSelection)
+    if (selection == null) {
+      // Set Slate's selection to what was in the DOM
+      setSelectionFromDom(window, editor, domSelection)
+    } else {
+      editor.select(selection)
+    }
 
     // Reset the nodes Set
     clear()

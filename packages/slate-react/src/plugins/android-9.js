@@ -3,6 +3,7 @@ import getWindow from 'get-window'
 import pick from 'lodash/pick'
 
 import fixSelectionInZeroWidthBlock from '../utils/fix-selection-in-zero-width-block'
+import isInputDataLastChar from '../utils/is-input-data-last-char'
 import setSelectionFromDom from '../utils/set-selection-from-dom'
 import setTextFromDomNode from '../utils/set-text-from-dom-node'
 import ActionManager from '../utils/action-manager'
@@ -67,7 +68,24 @@ function Android9Plugin() {
       },
     },
     /**
+     * Take a snapshot of the DOM before we do anything. This is so that we
+     * can revert from the Android events where `preventDefault` does not work.
+     */
+    {
+      name: 'snapshot',
+      onSetup({ editor }) {
+        snapshot = new DomSnapshot(window, editor, {
+          before: true,
+        })
+      },
+    },
+    /**
      * Handle compositions
+     *
+     * Test case:
+     *
+     * Go to the end of a word like `it` and then type `s` then click outside
+     * the editor. Slate's value should reflect `its`
      */
     {
       name: 'composition-updates',
@@ -111,8 +129,8 @@ function Android9Plugin() {
      * call `splitBlock`.
      *
      * - compositionend
-     * - keydown : Unidentified
-     * - keydown : Enter
+     * - keydown : "Unidentified"
+     * - keydown : "Enter"
      */
     {
       name: 'enter',
@@ -129,30 +147,38 @@ function Android9Plugin() {
       },
     },
     /**
-     * Handle `space`
+     * Handle `composition-end-space`
      *
      * - compositionend
-     * - keydown : Unidentified
-     * - beforeinput : insertText :
-     * - textInput : undefined :
-     * - input : insertText :
+     * - keydown                   "Unidentified"
+     * - beforeinput : insertText  " "
+     * - textInput                 " "
+     * - input       : insertText  " "
      *
-     * NOTE: We used the snapshot to revert and then use `editor.insertText`
-     * to fix a bug when a user types `space`, `backspace`, `space`, `backspace`
-     * in the middle of a word.
+     * The composition-end-space happens when you explicitly press the space
+     * bar. It differs from an implicit space when you enter two suggestions
+     * one after the other.
+     *
+     * NOTE:
+     * We cannot match in `onTrigger` because the `compositionEnd` must be
+     * matched to disambiguate from the implicit space.
      */
     {
-      name: 'space',
-      onTrigger(event, { editor }) {
-        if (event.type !== 'input') return
-        const { nativeEvent } = event
-        if (nativeEvent.inputType !== 'insertText') return
-        if (nativeEvent.data !== ' ') return
-        return function() {
-          keyDownSnapshot.apply(editor)
-          editor.insertText(' ')
-        }
-        return true
+      name: 'composition-end-space',
+      onFinish(events, { editor }) {
+        const compositionEndEvent = events.find(
+          event => event.type === 'compositionEnd'
+        )
+        if (!compositionEndEvent) return
+        const spaceEvent = events.find(
+          event => event.type === 'textInput' && event.nativeEvent.data === ' '
+        )
+        if (!spaceEvent) return
+        const { anchorNode } = window.getSelection()
+        nodes.add(anchorNode)
+        const selection = snapshot.apply(editor)
+        reconcile(window, editor, { from: 'composition-end-space', selection })
+        editor.insertText(' ')
       },
     },
     /**
@@ -164,7 +190,7 @@ function Android9Plugin() {
       name: 'instant-composition',
     },
     /**
-     * Handle `suggestion`
+     * Handle `edit-suggestion`
      *
      * Example signature
      *
@@ -175,16 +201,16 @@ function Android9Plugin() {
      * - beforeinput : deleteContentBackward
      * - input       : deleteContentBackward
      * - keydown
-     * - beforeinput : insertText : Middletown
-     * - textInput   : undefined  : Middletown
-     * - input       : insertText : Middletown
+     * - beforeinput : insertText "Middletown"
+     * - textInput "Middletown"
+     * - input       : insertText "Middletown"
      * - keydown
      *
      * To disambiguate from `backspace` we look for a backspace and a
      * `textInput`
      */
     {
-      name: 'suggestion',
+      name: 'edit-suggestion',
       onFinish(events, { editor }) {
         const deleteEvent = events.find(event => {
           if (event.type !== 'input') return
@@ -197,67 +223,193 @@ function Android9Plugin() {
         // all the events from scratch again.
         const textinputEvent = events.find(event => event.type === 'textInput')
         if (textinputEvent == null) return
-        reconcile(window, editor, { from: 'onInput:space' })
+        reconcile(window, editor, { from: 'suggestion' })
         return true
       },
     },
     /**
-     * Handle `backspace`
+     * Handle `period-at-end-of-composition-sometimes`
      *
-     * - compositionend (sometimes)
-     * - keydown
-     * - beforeinput
-     * - input : deleteContentBackward
+     * This requires a very specific set of circumstances. Type on a new line
+     * `It is. No.` and the `.` will disappear. Does not happen with a comma.
+     *
+     * Sometimes it can happen at beginning of line if you type `It.` only when
+     * the `It` is underlined while typing and it doesn't always happen.
+     *
+     * It fires two `actions` (i.e. separated by enough time to trigger two
+     * clock ticks on `setTimeout` or `requestAnimationFrame`).
+     *
+     * - compositionend
+     * - keydown "Unidentified"
+     * - beforeinput:insertText "."
+     * - textInput "."
+     *
+     * Followed by:
+     *
+     * - keydown "Unidentified"
+     * - beforeinput:deleteContentBackward
+     * - input:deleteContentBackward
+     * - beforeinput:delteContentBackward
+     * - input:deleteContentBackward
+     * - keydown "Unidentified"
+     * - compositionstart
+     * - beforeinput:insertCompositionText "No."
+     * - input:insertCompositionText "No."
      */
     {
-      name: 'backspace',
-      onSetup({ editor }) {
-        console.log('take a snapshot')
-        keyDownSnapshot = new DomSnapshot(window, editor, {
-          before: true,
-        })
+      name: 'insert-period-at-end-of-line',
+      onTrigger(event, options) {
+        if (event.type !== 'beforeinput') return
+        if (event.data !== '.') return
+        const { editor } = options
+        return function() {
+          reconcile(window, editor, {
+            from: 'insert-period-at-end-of-line',
+          })
+        }
       },
+    },
+    /**
+     * Handle `insert-suggestion-or-punctuation`
+     *
+     * Example signature
+     *
+     * - keydown
+     * - beforeinput:insertText "School"
+     * - textInput "School"
+     * - input:insertText "School"
+     *
+     * WORKING ON THIS! There is no `textInput` on the composition based
+     * inputs. A good way to disambiguate. We could potentially disambiguate by
+     * looking to see if we are in a composition as well but test to see if
+     * this is true.
+     *
+     */
+    {
+      name: 'insert-suggestion-or-space-or-punctuation',
+      onTrigger(event, { editor }) {
+        if (event.type !== 'textInput') return
+        if (status === NONE) return
+        const { anchorNode } = window.getSelection()
+        nodes.add(anchorNode)
+        return function() {
+          reconcile(window, editor, {
+            from: 'insert-suggestion-or-space-or-punctuation',
+          })
+          // setTimeout(() => {
+          //   console.log(
+          //     'one tick after insert-suggestion-or-space-or-punctuation'
+          //   )
+          // })
+        }
+      },
+    },
+    /**
+     * Handle `continuous-backspace`
+     *
+     * - compositionend
+     * - keydown "Unidentified"
+     * - beforeinput:deleteContentBackward
+     * - input:deleteContentBackward
+     */
+    {
+      name: 'continuous-backspace',
       onFinish(events, { editor }) {
-        const deleteEvent = events.find(event => {
+        // Find the number of matching delete events
+        const deleteEvents = events.filter(event => {
           return (
             event.type === 'input' &&
             event.nativeEvent.inputType === 'deleteContentBackward'
           )
         })
-        if (deleteEvent == null) return
-        keyDownSnapshot.apply(editor)
-        editor.deleteBackward()
+        // If we can't find any deletes then return
+        if (deleteEvents.length === 0) return
+        // revert to before the deletes started
+        snapshot.apply(editor)
+        // delete the same number of times that Android told us it did
+        editor.deleteBackward(deleteEvents.length)
         return true
       },
     },
     /**
-     * Handle none composition input
+     * Handle two gestures
      *
-     * In specific cases like typing punctuation, we will get an `input`
-     * without a composition.
+     * Signature for "hello" "there" (no typed space)
      *
-     * When this happens, we allow the input to go through and then we
-     * reconcile against the DOM at the end of the action.
+     * - keydown "Unidentified"
+     * - compositionstart
+     * - beforeinput:insertCompositionText "Hello"
+     * - input:insertCompositionText "Hello"
+     *
+     * Then:
+     *
+     * - compositionend
+     * - TEARDOWN/SETUP
+     * - keydown "Unidentified"
+     * - beforeinput:insertText " "
+     * - textInput " "
+     *
+     */
+    /**
+     * Handle `period-at-end-of-composition-sometimes`
+     *
+     * This requires a very specific set of circumstances. Type on a new line
+     * `It is. No.` and the `.` will disappear. Does not happen with a comma.
+     *
+     * Sometimes it can happen at beginning of line if you type `It.` only when
+     * the `It` is underlined while typing and it doesn't always happen.
+     *
+     * It fires two `actions` (i.e. separated by enough time to trigger two
+     * clock ticks on `setTimeout` or `requestAnimationFrame`).
+     *
+     * - compositionend
+     * - keydown "Unidentified"
+     * - beforeinput:insertText "."
+     * - textInput "."
+     *
+     * Followed by:
+     *
+     * - keydown "Unidentified"
+     * - beforeinput:deleteContentBackward
+     * - input:deleteContentBackward
+     * - beforeinput:delteContentBackward
+     * - input:deleteContentBackward
+     * - keydown "Unidentified"
+     * - compositionstart
+     * - beforeinput:insertCompositionText "No."
+     * - input:insertCompositionText "No."
+     */
+    // THIS IS CRASHING IN `after` enter enter backspace backspace
+    // {
+    //   name: 'insert-period-at-end-of-line',
+    //   onTrigger(event, { editor }) {
+    //     if (event.type !== 'input') return
+    //     if (status == COMPOSING) return
+
+    //     const { anchorNode } = window.getSelection()
+    //     nodes.add(anchorNode)
+
+    //     return function() {
+    //       reconcile(window, editor, { from: 'none-composition-input' })
+    //     }
+    //   },
+    // },
+    /**
+     * Signature of typing on end of word followed by signature of composition
+     *
+     * Typing at end of word "it" with an "s" signature:
+     *
+     * NOTE: We don't want this to trigger the `insert-suggestion`
      *
      * - keydown
-     * - beforeinput
-     * - textinput
-     * - input
+     * - beforeinput:insertCompositionText "its"
+     * - input:insertCompositionText "its"
+     *
+     * Blur signature
+     *
+     * - compositionend
+     *
      */
-    {
-      name: 'none-composition-input',
-      onTrigger(event, { editor }) {
-        if (event.type !== 'input') return
-        if (status == COMPOSING) return
-
-        const { anchorNode } = window.getSelection()
-        nodes.add(anchorNode)
-
-        return function() {
-          reconcile(window, editor, { from: 'none-composition-input' })
-        }
-      },
-    },
     {
       name: 'default-composition-end',
       onFinish(events, { editor }) {
@@ -265,14 +417,8 @@ function Android9Plugin() {
           return event.type === 'compositionend'
         })
         if (!compositionEndEvent) return
-        // const window = getWindow(event.target)
-        const domSelection = window.getSelection()
-        const { anchorNode } = domSelection
-
-        nodes.add(anchorNode)
-
         status = NONE
-        reconcile(window, editor, { from: 'onCompositionEnd:reconciler' })
+        reconcile(window, editor, { from: 'default-composition-end' })
         return true
       },
     },
@@ -318,7 +464,7 @@ function Android9Plugin() {
    * @type {DomSnapshot}
    */
 
-  let keyDownSnapshot = null
+  let snapshot = null
 
   /**
    * The deleter is an instace of `DelayedExecutor` that will execute a delete
@@ -373,7 +519,14 @@ function Android9Plugin() {
    * @param {String} options.from - where reconcile was called from for debug
    */
 
-  function reconcile(window, editor, { from }) {
+  function reconcile(window, editor, { from, selection }) {
+    console.log('reconcile', { from, selection })
+
+    // WARNING:
+    // Putting `nodes.add(anchorNode)` here will break reconciliation if you are
+    // reverting to a snapshot immediately before. The likely cause is the
+    // selection is in the wrong place.
+
     debug.reconcile({ from })
     const domSelection = window.getSelection()
 
@@ -381,7 +534,11 @@ function Android9Plugin() {
       setTextFromDomNode(window, editor, node)
     })
 
-    setSelectionFromDom(window, editor, domSelection)
+    if (selection) {
+      editor.select(selection)
+    } else {
+      setSelectionFromDom(window, editor, domSelection)
+    }
     nodes.clear()
   }
 
@@ -573,7 +730,7 @@ function Android9Plugin() {
     //   before: true,
     // })
 
-    debug('onKeyDown:snapshot', { keyDownSnapshot })
+    // debug('onKeyDown:snapshot', { keyDownSnapshot })
   }
 
   /**

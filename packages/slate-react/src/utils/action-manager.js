@@ -78,10 +78,12 @@ function ActionManager(options, handlers) {
    */
 
   function refresh() {
-    // clearTimeout(timeoutId)
-    // timeoutId = setTimeout(finish)
-    cancelAnimationFrame(timeoutId)
-    timeoutId = requestAnimationFrame(finish)
+    clearTimeout(timeoutId)
+    // IMPORTANT!
+    // If the timeout value is set to `0` (or very low) inserting the text
+    // `It is. No.` will end up with the `.` missing. This is because Android
+    // leaves time between
+    timeoutId = setTimeout(finish, 100)
   }
 
   /**
