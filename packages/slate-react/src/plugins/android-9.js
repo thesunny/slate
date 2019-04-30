@@ -320,6 +320,8 @@ function Android9Plugin() {
       },
     },
     /**
+     * ## Type at end of word
+     *
      * Signature of typing on end of word followed by signature of composition
      *
      * Typing at end of word "it" with an "s" signature:
@@ -333,6 +335,8 @@ function Android9Plugin() {
      * Blur signature
      *
      * - compositionend
+     *
+     * ## Two Gestures
      *
      * Handle two gestures with an implied space
      *
