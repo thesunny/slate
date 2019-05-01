@@ -6,6 +6,7 @@ import styled from 'react-emotion'
 import { Link, Redirect } from 'react-router-dom'
 import splitJoin from './split-join.js'
 import insert from './insert.js'
+import remove from './remove.js'
 import special from './special.js'
 import { isKeyHotkey } from 'is-hotkey'
 import { Button, Icon, Toolbar } from '../components'
@@ -91,7 +92,8 @@ function getTextLines(value) {
 
 const SUBPAGES = [
   ['Split/Join', splitJoin, 'split-join'],
-  ['Insertion', insert, 'insert'],
+  ['Insert', insert, 'insert'],
+  ['Delete', remove, 'delete'],
   ['Special', special, 'special'],
 ]
 
