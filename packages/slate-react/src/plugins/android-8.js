@@ -256,7 +256,52 @@ function Android8Plugin() {
       },
     },
     /**
-     * Handle `continuous-backspace`
+     * Handle `continuous-backspace-from-end-of-word`
+     *
+     * Deleting from end of `before it` to `befo`
+     *
+     * - keydown "Unidentified"
+     * - input:insertCompositionText "i"
+     * - keydown "Unidentified"
+     * - input:insertCompositionText null
+     * - compositionend
+     * - keydown "Unidentified"
+     * - input:delteContentBackward null
+     * - keydown "Unidentified"
+     * - input:insertCompositionText "befor"
+     * - keydown "Unidentified"
+     * - input:insertCompositionText "befo"
+     */
+    {
+      name: 'continuous-backspace-from-end-of-word',
+      onFinish(events, { editor }) {
+        // Find the number of matching delete events
+        const deleteEvents = events.filter(event => {
+          return (
+            event.type === 'input' &&
+            event.nativeEvent.inputType === 'deleteContentBackward'
+          )
+        })
+        // If we can't find any deletes then return
+        if (deleteEvents.length === 0) return
+        const insertCompositionEvents = events.filter(event => {
+          return (
+            event.type === 'input' &&
+            event.nativeEvent.inputType === 'insertCompositionText'
+          )
+        })
+        if (insertCompositionEvents.length === 0) return
+        // revert to before the deletes started
+        snapshot.apply(editor)
+        // delete the same number of times that Android told us it did
+        editor.deleteBackward(
+          deleteEvents.length + insertCompositionEvents.length
+        )
+        return true
+      },
+    },
+    /**
+     * Handle `continuous-backspace-from-middle-of-word`
      *
      * - compositionend
      * - keydown "Unidentified"
@@ -264,7 +309,7 @@ function Android8Plugin() {
      * - input:deleteContentBackward
      */
     {
-      name: 'continuous-backspace',
+      name: 'continuous-backspace-from-middle-of-word',
       onFinish(events, { editor }) {
         // Find the number of matching delete events
         const deleteEvents = events.filter(event => {
