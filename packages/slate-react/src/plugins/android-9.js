@@ -361,6 +361,9 @@ function Android9Plugin() {
         })
         if (!compositionEndEvent) return
         status = NONE
+        // Required when deleting a word and after you delete the last letter
+        // in the word one by one.
+        reconciler.addNode()
         reconciler.apply(window, editor, { from: 'default-composition-end' })
         return true
       },

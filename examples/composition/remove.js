@@ -1,7 +1,7 @@
 import { p, text, bold } from './util'
 
 export default {
-  text: `Enter text below each line of instruction exactly including mis-spelling wasnt`,
+  text: `Follow instructions. Only hold key when it says "hold"`,
   document: {
     nodes: [
       p(bold('Cursor to "mid|dle". Hold backspace into "start":')),
@@ -10,6 +10,8 @@ export default {
       p(text('Delete into start from end')),
       p(bold('Cursor to "h|ere". Backspace 4 times')),
       p(text('Backspace into '), bold('bold'), text(' here')),
+      p(bold('Cursor to "end|". Backspace 4 times')),
+      p(text('Backspace from end')),
     ],
   },
 }

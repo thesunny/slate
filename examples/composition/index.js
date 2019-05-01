@@ -91,6 +91,7 @@ function getTextLines(value) {
  */
 
 const SUBPAGES = [
+  ['Rich', splitJoin, 'rich'],
   ['Split/Join', splitJoin, 'split-join'],
   ['Insert', insert, 'insert'],
   ['Delete', remove, 'delete'],
