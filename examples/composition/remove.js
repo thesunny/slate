@@ -18,6 +18,8 @@ export default {
       p(text('Delete to start from range')),
       p(bold('Cursor to "end|". Backspace 4 times')),
       p(text('Backspace from end')),
+      p(bold('Cursor to "bold|". Backspace 5 times.')),
+      p(text('Delete '), bold('bold'), text(' word')),
     ],
   },
 }
