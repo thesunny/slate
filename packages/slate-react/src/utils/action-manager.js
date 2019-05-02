@@ -55,6 +55,8 @@ function ActionManager(options, handlers) {
   let finishHandler = null
   let finishName = null
 
+  // let delay = null
+
   /**
    * Call all `onSetup` handlers
    */
@@ -73,22 +75,43 @@ function ActionManager(options, handlers) {
 
   /**
    * Refresh the timeout by clearing the existing one and setting a new one.
-   * This tries to make sure that the `setTimeout` doesn't get called in the
-   * middle of an action.
+   * This pushes the timeout to make sure that the `setTimeout` or
+   * `requestAnimationFrame` doesn't get called in the middle of an action.
+   * 
+   * WARNING:
+   * You may feel compelled to reduce the `setTimeout` to use
+   * `requestAnimationFrame`. You will want to do this because:
+   * 
+   * - It feels like making this on `requestAnimationFrame` will make this
+   *   more responsive. In practice, it's fast enough.
+   * - 
    */
 
-  function refresh() {
+  function refresh() { // optionalDelay
+    // if (optionalDelay != null) delay = optionalDelay
+    // cancelAnimationFrame(timeoutId)
     clearTimeout(timeoutId)
-    // IMPORTANT!
-    // If the timeout value is set to `0` (or very low) inserting the text
-    // `It is. No.` will end up with the `.` missing.
-    //
-    // The scenario plays out when you try to reconcile the `.` too quickly.
-    // Then Android reacts to this DOM change which (I'm guessing) it thinks
-    // over-rode what Android thought it was trying to do.
-    //
-    // It then tries to delete the `No` word and re-insert the `.`.
-    timeoutId = setTimeout(finish, 100)
+    // if (delay == null) {
+    //   console.log(1)
+    //   timeoutId = requestAnimationFrame(finish)
+    // } else {
+      // console.log(2)
+      // timeoutId = setTimeout(finish, delay)
+      timeoutId = setTimeout(finish, 100)
+    // }
+    // console.log(3)
+
+    // clearTimeout(timeoutId)
+    // // IMPORTANT!
+    // // If the timeout value is set to `0` (or very low) inserting the text
+    // // `It is. No.` will end up with the `.` missing.
+    // //
+    // // The scenario plays out when you try to reconcile the `.` too quickly.
+    // // Then Android reacts to this DOM change which (I'm guessing) it thinks
+    // // over-rode what Android thought it was trying to do.
+    // //
+    // // It then tries to delete the `No` word and re-insert the `.`.
+    // timeoutId = setTimeout(finish)
   }
 
   /**
@@ -98,6 +121,7 @@ function ActionManager(options, handlers) {
 
   function reset() {
     events.length = 0
+    // delay = null
     isActionHandled = false
     finishHandler = null
     finishName = null
@@ -149,6 +173,11 @@ function ActionManager(options, handlers) {
         finishHandler = result
         finishName = handler.name
       }
+      // if (typeof result === 'number') {
+      //   debug(`trigger:delay(${result}):${handler.name}`)
+      //   refresh(result)
+      //   return false
+      // }
       return result
     })
 
@@ -173,7 +202,12 @@ function ActionManager(options, handlers) {
     if (isActionHandled) {
       if (finishHandler) {
         debug(`finish:trigger:${finishName}`)
-        finishHandler()
+        const result = finishHandler()
+        if (typeof result === 'function') {
+          debug(`finish:push:${finishName}`)
+          finishHandler = result
+          return
+        }
       }
       reset()
       return

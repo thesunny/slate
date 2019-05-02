@@ -38,18 +38,18 @@ function Android9Plugin() {
    * sure what specific things causes the issue) the quick `backspace` actions
    * often mess up the DOM.
    */
-  const selectManager = new ActionManager({}, [
-    {
-      name: 'last-select-in-select-manager',
-      onTeardown({ editor }) {
-        lastSelection = getSelectionFromDOM(
-          window,
-          editor,
-          window.getSelection()
-        )
-      },
-    },
-  ])
+  // const selectManager = new ActionManager({}, [
+  //   {
+  //     name: 'last-select-in-select-manager',
+  //     onTeardown({ editor }) {
+  //       lastSelection = getSelectionFromDOM(
+  //         window,
+  //         editor,
+  //         window.getSelection()
+  //       )
+  //     },
+  //   },
+  // ])
   const actionManager = new ActionManager({}, [
     actionManagerLogger,
     // {
@@ -250,13 +250,15 @@ function Android9Plugin() {
         if (event.data !== '.') return
         const { editor } = options
         return function() {
-          // IMPORTANT!
-          // Must be delayed by around 100ms which we do in ActionManager.
-          // If the delay is not present, this will delete some characters at
-          // the end.
-          reconciler.apply(window, editor, {
-            from: 'insert-period-at-end-of-line',
-          })
+          return function() {
+            // IMPORTANT!
+            // Must be delayed by around 100ms which we do in ActionManager.
+            // If the delay is not present, this will delete some characters at
+            // the end.
+            reconciler.apply(window, editor, {
+              from: 'insert-period-at-end-of-line',
+            })
+          }
         }
       },
     },
@@ -302,6 +304,17 @@ function Android9Plugin() {
      */
     {
       name: 'continuous-backspace-from-middle-or-end-of-word-or-range',
+      // onTrigger(event, { editor }) {
+      //   if (event.type !== 'input') return
+      //   if (
+      //     !['deleteContentBackward', 'insertCompositionText'].includes(
+      //       event.nativeEvent.inputType
+      //     )
+      //   )
+      //     return
+      //   // If we get a match, we want a longer delay before calling `onFinish`
+      //   return 100
+      // },
       onFinish(events, { editor }) {
         // Find the number of matching delete events
         const deleteEvents = events.filter(event => {
@@ -327,44 +340,47 @@ function Android9Plugin() {
         // revert to before the deletes started
         snapshot.apply(editor)
 
-        // We select the `lastSelection` after applying the `snapshot`.
-        // This is because even before the `snapshot` is taken (in the `onSetup`
-        // phase), Android collapses the selection. So in the case of a
-        // backspace, we rely on the selection from the previous action.
-        if (lastSelection) editor.select(lastSelection)
+        /**
+         * We select the `lastSelection` after applying the `snapshot`.
+         * This is because even before the `snapshot` is taken (in the `onSetup`
+         * phase), Android collapses the selection. So in the case of a
+         * backspace, we rely on the selection from the previous action.
+         */
+        // if (lastSelection) editor.select(lastSelection)
 
         // The backspace count is the combination of `deleteContentBackward`
         // and `insertCompositionText` events we find.
         const backspaceCount =
           deleteEvents.length + insertCompositionEvents.length
 
-        if (lastSelection == null || lastSelection.isCollapsed) {
-          //   console.log(1)
-          // If the `lastSelection` is collapsed, we `deleteBackward` the
-          // correct number of times.
-          //
-          // WARNING:
-          // You may be tempted to merge this code with the code below but
-          // it will not work. This may be a bug in Slate's implementation.
-          // Before removing this if/else, make sure it works for continuous
-          // backspace starting from an expanded and collapsed range.
-          editor.deleteBackward(backspaceCount)
-        } else {
-          console.log(2)
-          // If the `lastSelection` is not collapsed (i.e. it is expanded)
-          // then we `deleteBackward(1)` in order to delete the range.
-          // We then `deleteBackward` the remaining count if there are any.
-          // Slate will not allow us to call `deleteBackward` with the full
-          // count. It will always only delete the current selection.
-          //
-          // WARNING:
-          // You may be tempted to merge with above. At time of this comment,
-          // it won't work.
-          editor.deleteBackward(1)
-          if (backspaceCount > 1) {
-            editor.deleteBackward(backspaceCount - 1)
-          }
-        }
+        editor.deleteBackward(backspaceCount)
+        // if (lastSelection == null || lastSelection.isCollapsed) {
+        //   //   console.log(1)
+        //   // If the `lastSelection` is collapsed, we `deleteBackward` the
+        //   // correct number of times.
+        //   //
+        //   // WARNING:
+        //   // You may be tempted to merge this code with the code below but
+        //   // it will not work. This may be a bug in Slate's implementation.
+        //   // Before removing this if/else, make sure it works for continuous
+        //   // backspace starting from an expanded and collapsed range.
+        //   editor.deleteBackward(backspaceCount)
+        // } else {
+        //   console.log(2)
+        //   // If the `lastSelection` is not collapsed (i.e. it is expanded)
+        //   // then we `deleteBackward(1)` in order to delete the range.
+        //   // We then `deleteBackward` the remaining count if there are any.
+        //   // Slate will not allow us to call `deleteBackward` with the full
+        //   // count. It will always only delete the current selection.
+        //   //
+        //   // WARNING:
+        //   // You may be tempted to merge with above. At time of this comment,
+        //   // it won't work.
+        //   editor.deleteBackward(1)
+        //   if (backspaceCount > 1) {
+        //     editor.deleteBackward(backspaceCount - 1)
+        //   }
+        // }
         return true
       },
     },
@@ -621,7 +637,7 @@ function Android9Plugin() {
     debug('onSelect', { event, status })
 
     // actionManager.trigger(event, editor)
-    selectManager.trigger(event, editor, next)
+    // selectManager.trigger(event, editor, next)
 
     const window = getWindow(event.target)
 
