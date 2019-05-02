@@ -1,5 +1,6 @@
 import Debug from 'debug'
 import invariant from 'tiny-invariant'
+import { logEvent } from './action-manager-logger'
 
 const debug = Debug('slate:action-manager')
 
@@ -77,17 +78,18 @@ function ActionManager(options, handlers) {
    * Refresh the timeout by clearing the existing one and setting a new one.
    * This pushes the timeout to make sure that the `setTimeout` or
    * `requestAnimationFrame` doesn't get called in the middle of an action.
-   * 
+   *
    * WARNING:
    * You may feel compelled to reduce the `setTimeout` to use
    * `requestAnimationFrame`. You will want to do this because:
-   * 
+   *
    * - It feels like making this on `requestAnimationFrame` will make this
    *   more responsive. In practice, it's fast enough.
-   * - 
+   * - It feels like
    */
 
-  function refresh() { // optionalDelay
+  function refresh() {
+    // optionalDelay
     // if (optionalDelay != null) delay = optionalDelay
     // cancelAnimationFrame(timeoutId)
     clearTimeout(timeoutId)
@@ -95,9 +97,9 @@ function ActionManager(options, handlers) {
     //   console.log(1)
     //   timeoutId = requestAnimationFrame(finish)
     // } else {
-      // console.log(2)
-      // timeoutId = setTimeout(finish, delay)
-      timeoutId = setTimeout(finish, 100)
+    // console.log(2)
+    // timeoutId = setTimeout(finish, delay)
+    timeoutId = setTimeout(finish, 100)
     // }
     // console.log(3)
 
@@ -136,6 +138,7 @@ function ActionManager(options, handlers) {
    */
 
   function trigger(event, editor) {
+    logEvent(event)
     invariant(editor, 'Remember to pass in the editor')
 
     // add the `editor` to options
@@ -173,20 +176,18 @@ function ActionManager(options, handlers) {
         finishHandler = result
         finishName = handler.name
       }
-      // if (typeof result === 'number') {
-      //   debug(`trigger:delay(${result}):${handler.name}`)
-      //   refresh(result)
-      //   return false
-      // }
       return result
     })
 
     // If there is no matching handler, quit
     if (handler == null) return
 
-    // Mark action as handled
-    isActionHandled = true
-    debug(`trigger:${handler.name}`)
+    if (finishHandler) {
+      // Mark action as handled
+      isActionHandled = true
+    } else {
+      reset()
+    }
   }
 
   /**

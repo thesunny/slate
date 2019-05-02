@@ -130,10 +130,13 @@ function Android9Plugin() {
         if (event.type !== 'keydown') return
         if (event.key !== 'Enter') return
         event.preventDefault()
-        return () => {
-          reconciler.apply(window, editor, { from: 'onKeyDown:enter' })
-          editor.splitBlock()
-        }
+        reconciler.apply(window, editor, { from: 'onKeyDown:enter' })
+        editor.splitBlock()
+        return true
+        // return () => {
+        //   // reconciler.apply(window, editor, { from: 'onKeyDown:enter' })
+        //   // editor.splitBlock()
+        // }
       },
     },
     /**
@@ -635,6 +638,7 @@ function Android9Plugin() {
 
   function onSelect(event, editor, next) {
     debug('onSelect', { event, status })
+    console.log('SELECT')
 
     // actionManager.trigger(event, editor)
     // selectManager.trigger(event, editor, next)

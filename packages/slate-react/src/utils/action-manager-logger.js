@@ -11,6 +11,32 @@ function logTrigger(type, subtype, data) {
   console.log('TRIGGER', fullType, JSON.stringify(data))
 }
 
+export function logEvent(event) {
+  switch (event.type) {
+    case 'keydown':
+      logTrigger(event.type, null, event.key)
+      return
+    case 'input':
+      logTrigger(
+        event.type,
+        event.nativeEvent.inputType,
+        event.nativeEvent.data
+      )
+      return
+    case 'beforeinput':
+      logTrigger(event.type, event.inputType, event.data)
+      return
+    case 'textInput':
+      logTrigger(
+        event.type,
+        event.nativeEvent.inputType,
+        event.nativeEvent.data
+      )
+      return
+  }
+  logTrigger(event.type)
+}
+
 /**
  * An ActionManager handler for logging
  */
@@ -23,29 +49,7 @@ const actionManagerLogger = {
     console.log('====== TEARDOWN ==>')
   },
   onTrigger(event) {
-    switch (event.type) {
-      case 'keydown':
-        logTrigger(event.type, null, event.key)
-        return
-      case 'input':
-        logTrigger(
-          event.type,
-          event.nativeEvent.inputType,
-          event.nativeEvent.data
-        )
-        return
-      case 'beforeinput':
-        logTrigger(event.type, event.inputType, event.data)
-        return
-      case 'textInput':
-        logTrigger(
-          event.type,
-          event.nativeEvent.inputType,
-          event.nativeEvent.data
-        )
-        return
-    }
-    logTrigger(event.type)
+    // logEvent(event)
   },
   onFinish() {
     console.log('FINISH')
