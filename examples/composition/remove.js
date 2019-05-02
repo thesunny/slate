@@ -10,7 +10,7 @@ export default {
       p(text('Delete into start from end')),
       p(bold('Cursor to "h|ere". Backspace 4 times slowly')),
       p(text('Backspace into '), bold('bold'), text(' here')),
-      p(bold('Cursor to "h|ere". Backspace 2 times fast!')),
+      p(bold('Cursor to "h|ere". Backspace 4 times fast! (BROKEN)')),
       p(text('Fast backspace here')),
       p(bold('Select entire "range". Press backspace.')),
       p(text('Delete from range')),

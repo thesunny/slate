@@ -24,8 +24,44 @@ const NONE = 0
 const COMPOSING = 1
 
 function Android9Plugin() {
+  /**
+   * The select manager handles the creation of the `lastSelection`.
+   *
+   * We need it because when we delete a selection that is not collapsed,
+   * Android collapses it before we can read its proper size.
+   *
+   * So during delete, we always need access to `lastSelection`
+   *
+   * WARNING:
+   * Dont't add an `onSelect` trigger to `actionManager`. Because of when
+   * and how often `onSelect` triggers (and I have to admit, I'm not entirely
+   * sure what specific things causes the issue) the quick `backspace` actions
+   * often mess up the DOM.
+   */
+  const selectManager = new ActionManager({}, [
+    {
+      name: 'last-select-in-select-manager',
+      onTeardown({ editor }) {
+        lastSelection = getSelectionFromDOM(
+          window,
+          editor,
+          window.getSelection()
+        )
+      },
+    },
+  ])
   const actionManager = new ActionManager({}, [
     actionManagerLogger,
+    // {
+    //   name: 'last-select-inaction-manager',
+    //   onTeardown({ editor }) {
+    //     lastSelection = getSelectionFromDOM(
+    //       window,
+    //       editor,
+    //       window.getSelection()
+    //     )
+    //   },
+    // },
     /**
      * Take a snapshot of the DOM before we do anything. This is so that we
      * can revert from the Android events where `preventDefault` does not work.
@@ -37,13 +73,13 @@ function Android9Plugin() {
           before: true,
         })
       },
-      onTeardown({ editor }) {
-        lastSelection = getSelectionFromDOM(
-          window,
-          editor,
-          window.getSelection()
-        )
-      },
+      // onTeardown({ editor }) {
+      //   lastSelection = getSelectionFromDOM(
+      //     window,
+      //     editor,
+      //     window.getSelection()
+      //   )
+      // },
     },
     /**
      * Handle compositions
@@ -302,7 +338,8 @@ function Android9Plugin() {
         const backspaceCount =
           deleteEvents.length + insertCompositionEvents.length
 
-        if (lastSelection.isCollapsed) {
+        if (lastSelection == null || lastSelection.isCollapsed) {
+          //   console.log(1)
           // If the `lastSelection` is collapsed, we `deleteBackward` the
           // correct number of times.
           //
@@ -313,6 +350,7 @@ function Android9Plugin() {
           // backspace starting from an expanded and collapsed range.
           editor.deleteBackward(backspaceCount)
         } else {
+          console.log(2)
           // If the `lastSelection` is not collapsed (i.e. it is expanded)
           // then we `deleteBackward(1)` in order to delete the range.
           // We then `deleteBackward` the remaining count if there are any.
@@ -581,15 +619,11 @@ function Android9Plugin() {
 
   function onSelect(event, editor, next) {
     debug('onSelect', { event, status })
-    actionManager.trigger(event, editor)
+
+    // actionManager.trigger(event, editor)
+    selectManager.trigger(event, editor, next)
 
     const window = getWindow(event.target)
-
-    // const domSelection = window.getSelection()
-
-    // console.log('onSelect', domSelection)
-    // lastSelection = getSelectionFromDOM(window, editor, window.getSelection())
-    // console.log('onSelect lastSelection', lastSelection.toJS())
 
     fixSelectionInZeroWidthBlock(window)
   }
