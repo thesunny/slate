@@ -49,6 +49,8 @@ export default class DomSnapshot {
       }
     }
 
+    this.domSelection = domSelection
+    this.anchorNode = anchorNode
     this.snapshot = new ElementSnapshot(elements)
     this.selection = getSelectionFromDom(window, editor, domSelection)
   }

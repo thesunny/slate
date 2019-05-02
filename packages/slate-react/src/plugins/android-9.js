@@ -222,8 +222,7 @@ function Android9Plugin() {
      * - beforeinput:insertText "."
      * - textInput "."
      *
-     * This works by doing a `reconcile` and although there is no code
-     * specifically in here, it also has the special need that the `reconcile`
+     * This works by reconciling. It has the special need that the `reconciler`
      * be delayed by some time. We use 100ms. The delay code is in ActionManager
      * and if deleted will break this code here (there is a comment in
      * ActionManager on why there is a delay).
@@ -252,16 +251,14 @@ function Android9Plugin() {
         if (event.type !== 'beforeinput') return
         if (event.data !== '.') return
         const { editor } = options
+        // IMPORTANT!
+        // Applying the reconciler must be done with a wait of 100ms.
+        // Otherwise, it will fail. Applying the reconciler too early
+        // creates the second signature action above.
         return function() {
-          return function() {
-            // IMPORTANT!
-            // Must be delayed by around 100ms which we do in ActionManager.
-            // If the delay is not present, this will delete some characters at
-            // the end.
-            reconciler.apply(window, editor, {
-              from: 'insert-period-at-end-of-line',
-            })
-          }
+          reconciler.apply(window, editor, {
+            from: 'insert-period-at-end-of-line',
+          })
         }
       },
     },
@@ -384,6 +381,35 @@ function Android9Plugin() {
         //     editor.deleteBackward(backspaceCount - 1)
         //   }
         // }
+        return true
+      },
+    },
+    /**
+     * Handle `backspace-once-from-end-of-word`
+     *
+     * Deleting once that removes a DOM node.
+     *
+     * - beforeinput:insertCompositionText "wor"
+     * - input:insertCompositionText "wor"
+     */
+    {
+      name: 'backspace-that-removes-element',
+      onFinish(events, { editor }) {
+        const insertCompositionTextEvent = events.find(
+          event =>
+            event.type === 'input' &&
+            event.nativeEvent.inputType === 'insertCompositionText'
+        )
+        if (!insertCompositionTextEvent) return
+        const anchorExists = document.body.contains(snapshot.anchorNode)
+        console.log('anchorNode', snapshot.anchorNode, anchorExists)
+        if (anchorExists) return
+        const selection = snapshot.apply(editor)
+        reconciler.apply(window, editor, {
+          from: 'backspace-that-removes-element',
+        })
+        editor.select(selection)
+        editor.deleteBackward(1)
         return true
       },
     },

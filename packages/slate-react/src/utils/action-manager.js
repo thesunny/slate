@@ -138,7 +138,6 @@ function ActionManager(options, handlers) {
    */
 
   function trigger(event, editor) {
-    logEvent(event)
     invariant(editor, 'Remember to pass in the editor')
 
     // add the `editor` to options
@@ -155,6 +154,9 @@ function ActionManager(options, handlers) {
       setup()
       isFinished = false
     }
+
+    // We log here so that the `setup` logging can be displayed first.
+    logEvent(event)
 
     // If the action is already handled, we can ignore the event. We don't need
     // to pay attention until a new action starts again.
