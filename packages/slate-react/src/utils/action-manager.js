@@ -68,7 +68,7 @@ function ActionManager(options, handlers) {
    */
 
   function teardown() {
-    teardownHandlers.forEach(handler => handler.onTeardown())
+    teardownHandlers.forEach(handler => handler.onTeardown(options))
   }
 
   /**

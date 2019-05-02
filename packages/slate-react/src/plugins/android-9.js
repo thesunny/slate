@@ -3,6 +3,7 @@ import getWindow from 'get-window'
 import pick from 'lodash/pick'
 
 import fixSelectionInZeroWidthBlock from '../utils/fix-selection-in-zero-width-block'
+import getSelectionFromDOM from '../utils/get-selection-from-dom'
 import isInputDataLastChar from '../utils/is-input-data-last-char'
 import setSelectionFromDom from '../utils/set-selection-from-dom'
 import setTextFromDomNode from '../utils/set-text-from-dom-node'
@@ -35,6 +36,13 @@ function Android9Plugin() {
         snapshot = new DomSnapshot(window, editor, {
           before: true,
         })
+      },
+      onTeardown({ editor }) {
+        lastSelection = getSelectionFromDOM(
+          window,
+          editor,
+          window.getSelection()
+        )
       },
     },
     /**
@@ -257,7 +265,7 @@ function Android9Plugin() {
      * - input:insertCompositionText "befo"
      */
     {
-      name: 'continuous-backspace-from-end-of-word',
+      name: 'continuous-backspace-from-middle-or-end-of-word-or-range',
       onFinish(events, { editor }) {
         // Find the number of matching delete events
         const deleteEvents = events.filter(event => {
@@ -266,51 +274,91 @@ function Android9Plugin() {
             event.nativeEvent.inputType === 'deleteContentBackward'
           )
         })
+
         // If we can't find any deletes then return
         if (deleteEvents.length === 0) return
+
+        // Count `insertCompositionText` events because if we start
+        // backspacing at the end of the word, we get these mixed in instead
+        // of `deleteContentBackward` (the `data` is remaining part of word).
         const insertCompositionEvents = events.filter(event => {
           return (
             event.type === 'input' &&
             event.nativeEvent.inputType === 'insertCompositionText'
           )
         })
-        if (insertCompositionEvents.length === 0) return
+
         // revert to before the deletes started
         snapshot.apply(editor)
-        // delete the same number of times that Android told us it did
-        editor.deleteBackward(
+
+        // We select the `lastSelection` after applying the `snapshot`.
+        // This is because even before the `snapshot` is taken (in the `onSetup`
+        // phase), Android collapses the selection. So in the case of a
+        // backspace, we rely on the selection from the previous action.
+        if (lastSelection) editor.select(lastSelection)
+
+        // The backspace count is the combination of `deleteContentBackward`
+        // and `insertCompositionText` events we find.
+        const backspaceCount =
           deleteEvents.length + insertCompositionEvents.length
-        )
+
+        if (lastSelection.isCollapsed) {
+          // If the `lastSelection` is collapsed, we `deleteBackward` the
+          // correct number of times.
+          //
+          // WARNING:
+          // You may be tempted to merge this code with the code below but
+          // it will not work. This may be a bug in Slate's implementation.
+          // Before removing this if/else, make sure it works for continuous
+          // backspace starting from an expanded and collapsed range.
+          editor.deleteBackward(backspaceCount)
+        } else {
+          // If the `lastSelection` is not collapsed (i.e. it is expanded)
+          // then we `deleteBackward(1)` in order to delete the range.
+          // We then `deleteBackward` the remaining count if there are any.
+          // Slate will not allow us to call `deleteBackward` with the full
+          // count. It will always only delete the current selection.
+          //
+          // WARNING:
+          // You may be tempted to merge with above. At time of this comment,
+          // it won't work.
+          editor.deleteBackward(1)
+          if (backspaceCount > 1) {
+            editor.deleteBackward(backspaceCount - 1)
+          }
+        }
         return true
       },
     },
-    /**
-     * Handle `continuous-backspace-from-middle-of-word`
-     *
-     * - compositionend
-     * - keydown "Unidentified"
-     * - beforeinput:deleteContentBackward
-     * - input:deleteContentBackward
-     */
-    {
-      name: 'continuous-backspace-from-middle-of-word',
-      onFinish(events, { editor }) {
-        // Find the number of matching delete events
-        const deleteEvents = events.filter(event => {
-          return (
-            event.type === 'input' &&
-            event.nativeEvent.inputType === 'deleteContentBackward'
-          )
-        })
-        // If we can't find any deletes then return
-        if (deleteEvents.length === 0) return
-        // revert to before the deletes started
-        snapshot.apply(editor)
-        // delete the same number of times that Android told us it did
-        editor.deleteBackward(deleteEvents.length)
-        return true
-      },
-    },
+    // /**
+    //  * Handle `continuous-backspace-from-middle-of-word`
+    //  *
+    //  * - compositionend
+    //  * - keydown "Unidentified"
+    //  * - beforeinput:deleteContentBackward
+    //  * - input:deleteContentBackward
+    //  */
+    // {
+    //   name: 'continuous-backspace-from-middle-of-word',
+    //   onFinish(events, { editor }) {
+    //     // Find the number of matching delete events
+    //     const deleteEvents = events.filter(event => {
+    //       return (
+    //         event.type === 'input' &&
+    //         event.nativeEvent.inputType === 'deleteContentBackward'
+    //       )
+    //     })
+    //     // If we can't find any deletes then return
+    //     if (deleteEvents.length === 0) return
+    //     // revert to before the deletes started
+    //     snapshot.apply(editor)
+    //     // console.log('lastSelection', lastSelection.toJS())
+    //     editor.select(lastSelection)
+    //     // delete the same number of times that Android told us it did
+    //     editor.deleteBackward(deleteEvents.length)
+    //     return true
+    //   },
+    // },
     /**
      * ## Type at end of word
      *
@@ -394,6 +442,17 @@ function Android9Plugin() {
    */
 
   let snapshot = null
+
+  /**
+   * When you press the `backspace` key, the dom collapses before we are able
+   * to get the `domSelection`. For this reason, we need to keep the previous
+   * `domSelection` around for the case of handling a backspace on a Range.
+   *
+   * If we don't, we end up deleting one character instead of the entire
+   * selection.
+   */
+
+  let lastSelection = null
 
   /**
    * Triage `beforeinput` and `textinput`.
@@ -522,8 +581,16 @@ function Android9Plugin() {
 
   function onSelect(event, editor, next) {
     debug('onSelect', { event, status })
+    actionManager.trigger(event, editor)
 
     const window = getWindow(event.target)
+
+    // const domSelection = window.getSelection()
+
+    // console.log('onSelect', domSelection)
+    // lastSelection = getSelectionFromDOM(window, editor, window.getSelection())
+    // console.log('onSelect lastSelection', lastSelection.toJS())
+
     fixSelectionInZeroWidthBlock(window)
   }
 
