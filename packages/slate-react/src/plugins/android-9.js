@@ -252,13 +252,15 @@ function Android9Plugin() {
         if (event.data !== '.') return
         const { editor } = options
         // IMPORTANT!
-        // Applying the reconciler must be done with a wait of 100ms.
+        // Applying the reconciler must be done with an extended delay.
         // Otherwise, it will fail. Applying the reconciler too early
         // creates the second signature action above.
         return function() {
-          reconciler.apply(window, editor, {
-            from: 'insert-period-at-end-of-line',
-          })
+          return function() {
+            reconciler.apply(window, editor, {
+              from: 'insert-period-at-end-of-line',
+            })
+          }
         }
       },
     },

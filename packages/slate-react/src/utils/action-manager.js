@@ -12,6 +12,10 @@ function ActionManager(options, handlers) {
   invariant(typeof options === 'object')
   invariant(Array.isArray(handlers))
 
+  const manager = { trigger, setDelay }
+
+  options.manager = manager
+
   /**
    * Create sets of handlers to improve efficiency of when iterating over
    * them
@@ -99,7 +103,7 @@ function ActionManager(options, handlers) {
     // } else {
     // console.log(2)
     // timeoutId = setTimeout(finish, delay)
-    timeoutId = setTimeout(finish, 100)
+    timeoutId = setTimeout(finish, delay)
     // }
     // console.log(3)
 
@@ -116,6 +120,12 @@ function ActionManager(options, handlers) {
     // timeoutId = setTimeout(finish)
   }
 
+  let delay = 0
+
+  function setDelay(argDelay) {
+    delay = argDelay
+  }
+
   /**
    * Resets the events associated with the current action. Usually called when
    * the the action is `finish`ed.
@@ -123,7 +133,7 @@ function ActionManager(options, handlers) {
 
   function reset() {
     events.length = 0
-    // delay = null
+    delay = 0
     isActionHandled = false
     finishHandler = null
     finishName = null
@@ -232,7 +242,7 @@ function ActionManager(options, handlers) {
     reset()
   }
 
-  return { trigger }
+  return manager
 }
 
 export default ActionManager
