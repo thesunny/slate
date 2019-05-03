@@ -37,21 +37,27 @@ export default class DomSnapshot {
     const domSelection = window.getSelection()
     const { anchorNode } = domSelection
     const subrootEl = closest(anchorNode, '[data-slate-editor] > *')
-    const elements = [subrootEl]
+    const rootEl = closest(anchorNode, '[data-slate-editor]')
 
-    // The before option is for when we need to take a snapshot of the current
-    // subroot and the element before when the user hits the backspace key.
-    if (before) {
-      const { previousElementSibling } = subrootEl
+    console.log({ subrootEl, rootEl })
+    const elements = Array.from(rootEl.childNodes)
+    console.log(elements.length)
+    // const elements = [subrootEl]
 
-      if (previousElementSibling) {
-        elements.unshift(previousElementSibling)
-      }
-    }
+    // // The before option is for when we need to take a snapshot of the current
+    // // subroot and the element before when the user hits the backspace key.
+    // if (before) {
+    //   const { previousElementSibling } = subrootEl
+
+    //   if (previousElementSibling) {
+    //     elements.unshift(previousElementSibling)
+    //   }
+    // }
 
     this.domSelection = domSelection
     this.anchorNode = anchorNode
     this.snapshot = new ElementSnapshot(elements)
+    this.domRange = domSelection ? domSelection.getRangeAt(0) : null
     this.selection = getSelectionFromDom(window, editor, domSelection)
   }
 
@@ -62,8 +68,14 @@ export default class DomSnapshot {
    */
 
   apply(editor) {
-    const { snapshot, selection } = this
+    const { snapshot, selection, domRange } = this
     snapshot.apply()
+    if (domRange) {
+      console.log('restore dom range')
+      const domSelection = window.getSelection()
+      domSelection.removeAllRanges()
+      domSelection.addRange(domRange)
+    }
     editor.select(selection)
     // editor.moveTo(selection.anchor.key, selection.anchor.offset)
     return selection

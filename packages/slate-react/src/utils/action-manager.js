@@ -12,7 +12,7 @@ function ActionManager(options, handlers) {
   invariant(typeof options === 'object')
   invariant(Array.isArray(handlers))
 
-  const manager = { trigger, setDelay }
+  const manager = { trigger, refresh, setDelay }
 
   options.manager = manager
 
@@ -38,6 +38,18 @@ function ActionManager(options, handlers) {
    */
 
   let timeoutId = null
+
+  /**
+   * Has a trigger been fired for this action?
+   *
+   * Some events will call `refresh` like `onSelect` instead of `trigger`.
+   * If an action consists only of `refresh` calls, it should not do any
+   * matching on finish. That only happens when there is at least one trigger.
+   *
+   * We use `isTriggered` to keep track of this.
+   */
+
+  let isTriggered = false
 
   /**
    * Is the action finished? If so, it means the next trigger is the first
@@ -92,7 +104,8 @@ function ActionManager(options, handlers) {
    * - It feels like
    */
 
-  function refresh() {
+  function refresh(event, editor) {
+    options.editor = editor
     // optionalDelay
     // if (optionalDelay != null) delay = optionalDelay
     // cancelAnimationFrame(timeoutId)
@@ -120,7 +133,9 @@ function ActionManager(options, handlers) {
     // timeoutId = setTimeout(finish)
   }
 
-  let delay = 0
+  const defaultDelay = 100
+
+  let delay = defaultDelay
 
   function setDelay(argDelay) {
     delay = argDelay
@@ -133,7 +148,8 @@ function ActionManager(options, handlers) {
 
   function reset() {
     events.length = 0
-    delay = 0
+    delay = defaultDelay
+    isTriggered = false
     isActionHandled = false
     finishHandler = null
     finishName = null
@@ -150,12 +166,15 @@ function ActionManager(options, handlers) {
   function trigger(event, editor) {
     invariant(editor, 'Remember to pass in the editor')
 
+    // Mark this action as `isTriggered`
+    isTriggered = true
+
     // add the `editor` to options
     options.editor = editor
 
     // Refresh the `setTimeout` to make sure it doesn't fire in the middle of
     // an action.
-    refresh()
+    refresh(event, editor)
 
     // If this is the first first event for the action (i.e. the first event
     // called when `isFinished` is true) then run all the setup handlers and
@@ -210,6 +229,12 @@ function ActionManager(options, handlers) {
 
   function finish() {
     debug(`finish`)
+
+    if (!isTriggered) {
+      debug(`finish:untriggered`)
+      reset()
+      return
+    }
 
     // If the action was handled in an `onTrigger`, reset and quit
     if (isActionHandled) {

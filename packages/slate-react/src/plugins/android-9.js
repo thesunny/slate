@@ -69,17 +69,42 @@ function Android9Plugin() {
     {
       name: 'snapshot',
       onSetup({ editor }) {
-        snapshot = new DomSnapshot(window, editor, {
-          before: true,
+        // snapshot = new DomSnapshot(window, editor, {
+        //   before: true,
+        // })
+      },
+      onTeardown({ editor }) {
+        // lastSelection = getSelectionFromDOM(
+        //   window,
+        //   editor,
+        //   window.getSelection()
+        // )
+        // console.log('pre-snapshot')
+        // editor.setState({}, () => {
+        //   console.log('actual-snapshot')
+        //   snapshot = new DomSnapshot(window, editor, {
+        //     before: true,
+        //   })
+        // })
+        // editor.forceUpdate(() => {
+        //   console.log('actual-snapshot')
+        //   snapshot = new DomSnapshot(window, editor, {
+        //     before: true,
+        //   })
+        // })
+        // console.log('onTeardown snapshot')
+        // // requestAnimationFrame(() => {
+        //   snapshot = new DomSnapshot(window, editor, {
+        //     before: true,
+        //   })
+        // // })
+        // console.log('onTeardown snapshot')
+        requestAnimationFrame(() => {
+          snapshot = new DomSnapshot(window, editor, {
+            before: true,
+          })
         })
       },
-      // onTeardown({ editor }) {
-      //   lastSelection = getSelectionFromDOM(
-      //     window,
-      //     editor,
-      //     window.getSelection()
-      //   )
-      // },
     },
     /**
      * Handle compositions
@@ -666,7 +691,7 @@ function Android9Plugin() {
 
   function onSelect(event, editor, next) {
     debug('onSelect', { event, status })
-    console.log('SELECT')
+    actionManager.refresh(event, editor)
 
     // actionManager.trigger(event, editor)
     // selectManager.trigger(event, editor, next)
