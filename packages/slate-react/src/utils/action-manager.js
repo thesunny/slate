@@ -87,6 +87,7 @@ function ActionManager(options, handlers) {
    */
 
   function teardown() {
+    options.isActionHandled = isActionHandled
     teardownHandlers.forEach(handler => handler.onTeardown(options))
   }
 
