@@ -261,6 +261,7 @@ function ActionManager(options, handlers) {
     if (action == null) {
       debug(`finish:no-reaction`)
     } else {
+      isActionHandled = true
       debug(`finish:${action.name}`)
     }
 
