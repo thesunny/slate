@@ -69,9 +69,9 @@ function Android9Plugin() {
     {
       name: 'snapshot',
       onSetup({ editor }) {
-        // snapshot = new DomSnapshot(window, editor, {
-        //   before: true,
-        // })
+        snapshot = new DomSnapshot(window, editor, {
+          before: true,
+        })
       },
       onTeardown({ editor, isActionHandled }) {
         // lastSelection = getSelectionFromDOM(
@@ -99,25 +99,24 @@ function Android9Plugin() {
         //   })
         // // })
         // console.log('onTeardown snapshot')
-
         /**
          * What we are trying to accomplish here is to take a snapshot
          * synchronously after the rendering of the DOM.
          */
-        if (isActionHandled) {
-          console.log(111)
-          editor.setState({}, () => {
-            console.log(222)
-            snapshot = new DomSnapshot(window, editor, {
-              before: true,
-            })
-          })
-        } else {
-          console.log(333)
-          if (status !== COMPOSING) {
-            snapshot = new DomSnapshot(window, editor, { before: true })
-          }
-        }
+        // if (isActionHandled) {
+        //   console.log(111)
+        //   editor.setState({}, () => {
+        //     console.log(222)
+        //     snapshot = new DomSnapshot(window, editor, {
+        //       before: true,
+        //     })
+        //   })
+        // } else {
+        //   console.log(333)
+        //   if (status !== COMPOSING) {
+        //     snapshot = new DomSnapshot(window, editor, { before: true })
+        //   }
+        // }
         // requestAnimationFrame(() => {
         //   snapshot = new DomSnapshot(window, editor, {
         //     before: true,
@@ -174,6 +173,7 @@ function Android9Plugin() {
         if (event.type !== 'keydown') return
         if (event.key !== 'Enter') return
         event.preventDefault()
+        reconciler.addNode()
         reconciler.apply(window, editor, { from: 'onKeyDown:enter' })
         editor.splitBlock()
         return true
@@ -183,154 +183,154 @@ function Android9Plugin() {
         // }
       },
     },
-    /**
-     * Handle `composition-end-space`
-     *
-     * - compositionend
-     * - keydown                   "Unidentified"
-     * - beforeinput : insertText  " "
-     * - textInput                 " "
-     * - input       : insertText  " "
-     *
-     * The composition-end-space happens when you explicitly press the space
-     * bar. It differs from an implicit space when you enter two suggestions
-     * one after the other.
-     *
-     * NOTE:
-     * We cannot match in `onTrigger` because the `compositionEnd` must be
-     * matched to disambiguate from the implicit space.
-     */
+    // /**
+    //  * Handle `composition-end-space`
+    //  *
+    //  * - compositionend
+    //  * - keydown                   "Unidentified"
+    //  * - beforeinput : insertText  " "
+    //  * - textInput                 " "
+    //  * - input       : insertText  " "
+    //  *
+    //  * The composition-end-space happens when you explicitly press the space
+    //  * bar. It differs from an implicit space when you enter two suggestions
+    //  * one after the other.
+    //  *
+    //  * NOTE:
+    //  * We cannot match in `onTrigger` because the `compositionEnd` must be
+    //  * matched to disambiguate from the implicit space.
+    //  */
+    // // {
+    // //   name: 'composition-end-space',
+    // //   onFinish(events, { editor }) {
+    // //     const compositionEndEvent = events.find(
+    // //       event => event.type === 'compositionEnd'
+    // //     )
+    // //     if (!compositionEndEvent) return
+    // //     const spaceEvent = events.find(
+    // //       event => event.type === 'textInput' && event.nativeEvent.data === ' '
+    // //     )
+    // //     if (!spaceEvent) return
+    // //     reconciler.addNode()
+    // //     const selection = snapshot.apply(editor)
+    // //     reconciler.apply(window, editor, {
+    // //       from: 'composition-end-space',
+    // //       selection,
+    // //     })
+    // //     editor.insertText(' ')
+    // //   },
+    // // },
+    // /**
+    //  * Handle `edit-suggestion`
+    //  *
+    //  * Example signature
+    //  *
+    //  * - compositionend
+    //  * - keydown
+    //  * - beforeinput : deleteContentBackward
+    //  * - input       : deleteContentBackward
+    //  * - beforeinput : deleteContentBackward
+    //  * - input       : deleteContentBackward
+    //  * - keydown
+    //  * - beforeinput : insertText "Middletown"
+    //  * - textInput "Middletown"
+    //  * - input       : insertText "Middletown"
+    //  * - keydown
+    //  *
+    //  * To disambiguate from `backspace` we look for a backspace and a
+    //  * `textInput`
+    //  */
     // {
-    //   name: 'composition-end-space',
+    //   name: 'edit-suggestion',
     //   onFinish(events, { editor }) {
-    //     const compositionEndEvent = events.find(
-    //       event => event.type === 'compositionEnd'
-    //     )
-    //     if (!compositionEndEvent) return
-    //     const spaceEvent = events.find(
-    //       event => event.type === 'textInput' && event.nativeEvent.data === ' '
-    //     )
-    //     if (!spaceEvent) return
-    //     reconciler.addNode()
-    //     const selection = snapshot.apply(editor)
-    //     reconciler.apply(window, editor, {
-    //       from: 'composition-end-space',
-    //       selection,
+    //     const deleteEvent = events.find(event => {
+    //       if (event.type !== 'input') return
+    //       if (event.nativeEvent.inputType !== 'deleteContentBackward') return
+    //       return true
     //     })
-    //     editor.insertText(' ')
+    //     if (deleteEvent == null) return
+    //     // TODO:
+    //     // We can start searching after the earlier find instead of searching
+    //     // all the events from scratch again.
+    //     const textinputEvent = events.find(event => event.type === 'textInput')
+    //     if (textinputEvent == null) return
+    //     reconciler.apply(window, editor, { from: 'suggestion' })
+    //     return true
     //   },
     // },
-    /**
-     * Handle `edit-suggestion`
-     *
-     * Example signature
-     *
-     * - compositionend
-     * - keydown
-     * - beforeinput : deleteContentBackward
-     * - input       : deleteContentBackward
-     * - beforeinput : deleteContentBackward
-     * - input       : deleteContentBackward
-     * - keydown
-     * - beforeinput : insertText "Middletown"
-     * - textInput "Middletown"
-     * - input       : insertText "Middletown"
-     * - keydown
-     *
-     * To disambiguate from `backspace` we look for a backspace and a
-     * `textInput`
-     */
-    {
-      name: 'edit-suggestion',
-      onFinish(events, { editor }) {
-        const deleteEvent = events.find(event => {
-          if (event.type !== 'input') return
-          if (event.nativeEvent.inputType !== 'deleteContentBackward') return
-          return true
-        })
-        if (deleteEvent == null) return
-        // TODO:
-        // We can start searching after the earlier find instead of searching
-        // all the events from scratch again.
-        const textinputEvent = events.find(event => event.type === 'textInput')
-        if (textinputEvent == null) return
-        reconciler.apply(window, editor, { from: 'suggestion' })
-        return true
-      },
-    },
-    /**
-     * Handle `insert-period-at-end-of-line`
-     *
-     * - compositionend
-     * - keydown "Unidentified"
-     * - beforeinput:insertText "."
-     * - textInput "."
-     *
-     * This works by reconciling. It has the special need that the `reconciler`
-     * be delayed by some time. We use 100ms. The delay code is in ActionManager
-     * and if deleted will break this code here (there is a comment in
-     * ActionManager on why there is a delay).
-     *
-     * It is triggered by typing `It is. No.` and the `.` (or more) will
-     * disappear.
-     *
-     * If we fire `reconcile` too soon, we get a signature like this.
-     *
-     * - keydown "Unidentified"
-     * - beforeinput:deleteContentBackward
-     * - input:deleteContentBackward
-     * - beforeinput:deleteContentBackward
-     * - input:deleteContentBackward
-     * - keydown "Unidentified"
-     * - compositionstart
-     * - beforeinput:insertCompositionText "No."
-     * - input:insertCompositionText "No."
-     *
-     * Sometimes it can happen at beginning of line if you type `It.` only when
-     * the `It` is underlined while typing and it doesn't always happen.
-     */
-    {
-      name: 'insert-period-at-end-of-line',
-      onTrigger(event, options) {
-        if (event.type !== 'beforeinput') return
-        if (event.data !== '.') return
-        const { editor } = options
-        // IMPORTANT!
-        // Applying the reconciler must be done with an extended delay.
-        // Otherwise, it will fail. Applying the reconciler too early
-        // creates the second signature action above.
-        return function() {
-          return function() {
-            reconciler.apply(window, editor, {
-              from: 'insert-period-at-end-of-line',
-            })
-          }
-        }
-      },
-    },
-    /**
-     * Handle `insert-suggestion-or-space-or-punctuation`
-     *
-     * Example signature
-     *
-     * - keydown
-     * - beforeinput:insertText "School"
-     * - textInput "School"
-     * - input:insertText "School"
-     */
-    {
-      name: 'insert-suggestion-or-space-or-punctuation',
-      onTrigger(event, { editor }) {
-        if (event.type !== 'textInput') return
-        if (status === NONE) return
-        reconciler.addNode()
-        return function() {
-          reconciler.apply(window, editor, {
-            from: 'insert-suggestion-or-space-or-punctuation',
-          })
-        }
-      },
-    },
+    // /**
+    //  * Handle `insert-period-at-end-of-line`
+    //  *
+    //  * - compositionend
+    //  * - keydown "Unidentified"
+    //  * - beforeinput:insertText "."
+    //  * - textInput "."
+    //  *
+    //  * This works by reconciling. It has the special need that the `reconciler`
+    //  * be delayed by some time. We use 100ms. The delay code is in ActionManager
+    //  * and if deleted will break this code here (there is a comment in
+    //  * ActionManager on why there is a delay).
+    //  *
+    //  * It is triggered by typing `It is. No.` and the `.` (or more) will
+    //  * disappear.
+    //  *
+    //  * If we fire `reconcile` too soon, we get a signature like this.
+    //  *
+    //  * - keydown "Unidentified"
+    //  * - beforeinput:deleteContentBackward
+    //  * - input:deleteContentBackward
+    //  * - beforeinput:deleteContentBackward
+    //  * - input:deleteContentBackward
+    //  * - keydown "Unidentified"
+    //  * - compositionstart
+    //  * - beforeinput:insertCompositionText "No."
+    //  * - input:insertCompositionText "No."
+    //  *
+    //  * Sometimes it can happen at beginning of line if you type `It.` only when
+    //  * the `It` is underlined while typing and it doesn't always happen.
+    //  */
+    // {
+    //   name: 'insert-period-at-end-of-line',
+    //   onTrigger(event, options) {
+    //     if (event.type !== 'beforeinput') return
+    //     if (event.data !== '.') return
+    //     const { editor } = options
+    //     // IMPORTANT!
+    //     // Applying the reconciler must be done with an extended delay.
+    //     // Otherwise, it will fail. Applying the reconciler too early
+    //     // creates the second signature action above.
+    //     return function() {
+    //       return function() {
+    //         reconciler.apply(window, editor, {
+    //           from: 'insert-period-at-end-of-line',
+    //         })
+    //       }
+    //     }
+    //   },
+    // },
+    // /**
+    //  * Handle `insert-suggestion-or-space-or-punctuation`
+    //  *
+    //  * Example signature
+    //  *
+    //  * - keydown
+    //  * - beforeinput:insertText "School"
+    //  * - textInput "School"
+    //  * - input:insertText "School"
+    //  */
+    // {
+    //   name: 'insert-suggestion-or-space-or-punctuation',
+    //   onTrigger(event, { editor }) {
+    //     if (event.type !== 'textInput') return
+    //     if (status === NONE) return
+    //     reconciler.addNode()
+    //     return function() {
+    //       reconciler.apply(window, editor, {
+    //         from: 'insert-suggestion-or-space-or-punctuation',
+    //       })
+    //     }
+    //   },
+    // },
     /**
      * Handle `continuous-backspace-from-end-of-word`
      *
@@ -430,64 +430,64 @@ function Android9Plugin() {
         return true
       },
     },
-    // /**
-    //  * Handle `backspace-once-from-end-of-word`
-    //  *
-    //  * Deleting once that removes a DOM node.
-    //  *
-    //  * - beforeinput:insertCompositionText "wor"
-    //  * - input:insertCompositionText "wor"
-    //  */
-    // {
-    //   name: 'backspace-that-removes-element',
-    //   onFinish(events, { editor }) {
-    //     const insertCompositionTextEvent = events.find(
-    //       event =>
-    //         event.type === 'input' &&
-    //         event.nativeEvent.inputType === 'insertCompositionText'
-    //     )
-    //     if (!insertCompositionTextEvent) return
-    //     const anchorExists = document.body.contains(snapshot.anchorNode)
-    //     console.log('anchorNode', snapshot.anchorNode, anchorExists)
-    //     if (anchorExists) return
-    //     const selection = snapshot.apply(editor)
-    //     reconciler.apply(window, editor, {
-    //       from: 'backspace-that-removes-element',
-    //     })
-    //     editor.select(selection)
-    //     editor.deleteBackward(1)
-    //     return true
-    //   },
-    // },
-    // /**
-    //  * Handle `continuous-backspace-from-middle-of-word`
-    //  *
-    //  * - compositionend
-    //  * - keydown "Unidentified"
-    //  * - beforeinput:deleteContentBackward
-    //  * - input:deleteContentBackward
-    //  */
-    // {
-    //   name: 'continuous-backspace-from-middle-of-word',
-    //   onFinish(events, { editor }) {
-    //     // Find the number of matching delete events
-    //     const deleteEvents = events.filter(event => {
-    //       return (
-    //         event.type === 'input' &&
-    //         event.nativeEvent.inputType === 'deleteContentBackward'
-    //       )
-    //     })
-    //     // If we can't find any deletes then return
-    //     if (deleteEvents.length === 0) return
-    //     // revert to before the deletes started
-    //     snapshot.apply(editor)
-    //     // console.log('lastSelection', lastSelection.toJS())
-    //     editor.select(lastSelection)
-    //     // delete the same number of times that Android told us it did
-    //     editor.deleteBackward(deleteEvents.length)
-    //     return true
-    //   },
-    // },
+    // // /**
+    // //  * Handle `backspace-once-from-end-of-word`
+    // //  *
+    // //  * Deleting once that removes a DOM node.
+    // //  *
+    // //  * - beforeinput:insertCompositionText "wor"
+    // //  * - input:insertCompositionText "wor"
+    // //  */
+    // // {
+    // //   name: 'backspace-that-removes-element',
+    // //   onFinish(events, { editor }) {
+    // //     const insertCompositionTextEvent = events.find(
+    // //       event =>
+    // //         event.type === 'input' &&
+    // //         event.nativeEvent.inputType === 'insertCompositionText'
+    // //     )
+    // //     if (!insertCompositionTextEvent) return
+    // //     const anchorExists = document.body.contains(snapshot.anchorNode)
+    // //     console.log('anchorNode', snapshot.anchorNode, anchorExists)
+    // //     if (anchorExists) return
+    // //     const selection = snapshot.apply(editor)
+    // //     reconciler.apply(window, editor, {
+    // //       from: 'backspace-that-removes-element',
+    // //     })
+    // //     editor.select(selection)
+    // //     editor.deleteBackward(1)
+    // //     return true
+    // //   },
+    // // },
+    // // /**
+    // //  * Handle `continuous-backspace-from-middle-of-word`
+    // //  *
+    // //  * - compositionend
+    // //  * - keydown "Unidentified"
+    // //  * - beforeinput:deleteContentBackward
+    // //  * - input:deleteContentBackward
+    // //  */
+    // // {
+    // //   name: 'continuous-backspace-from-middle-of-word',
+    // //   onFinish(events, { editor }) {
+    // //     // Find the number of matching delete events
+    // //     const deleteEvents = events.filter(event => {
+    // //       return (
+    // //         event.type === 'input' &&
+    // //         event.nativeEvent.inputType === 'deleteContentBackward'
+    // //       )
+    // //     })
+    // //     // If we can't find any deletes then return
+    // //     if (deleteEvents.length === 0) return
+    // //     // revert to before the deletes started
+    // //     snapshot.apply(editor)
+    // //     // console.log('lastSelection', lastSelection.toJS())
+    // //     editor.select(lastSelection)
+    // //     // delete the same number of times that Android told us it did
+    // //     editor.deleteBackward(deleteEvents.length)
+    // //     return true
+    // //   },
+    // // },
     /**
      * ## Type at end of word
      *
@@ -542,6 +542,25 @@ function Android9Plugin() {
         // in the word one by one.
         reconciler.addNode()
         reconciler.apply(window, editor, { from: 'default-composition-end' })
+        return true
+      },
+    },
+    /**
+     * Handle `composition-less-update`
+     * 
+     * It's key signature is that there is a `keyup` and we aren't in the
+     * middle of a composition (i.e. there is no unresolved `compositionstart`
+     * which would indicate we are in a composition)
+     */
+    {
+      name: 'composition-less-update',
+      onFinish(events, { editor }) {
+        if (status === COMPOSING) return
+        const keyupEvent = events.find(event => event.type === 'keyup')
+        if (!keyupEvent) return
+        reconciler.clear()
+        reconciler.addNode()
+        reconciler.apply(window, editor, { from: 'composition-less-update' })
         return true
       },
     },

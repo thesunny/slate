@@ -1,6 +1,7 @@
 import Debug from 'debug'
 import invariant from 'tiny-invariant'
-import { logEvent } from './action-manager-logger'
+// import { logEvent } from './action-manager-logger'
+import logEvent from './log-event'
 
 const debug = Debug('slate:action-manager')
 
@@ -134,7 +135,7 @@ function ActionManager(options, handlers) {
     // timeoutId = setTimeout(finish)
   }
 
-  const defaultDelay = 100
+  const defaultDelay = 0
 
   let delay = defaultDelay
 
@@ -186,7 +187,7 @@ function ActionManager(options, handlers) {
     }
 
     // We log here so that the `setup` logging can be displayed first.
-    logEvent(event)
+    // logEvent(event)
 
     // If the action is already handled, we can ignore the event. We don't need
     // to pay attention until a new action starts again.
