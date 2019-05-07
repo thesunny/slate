@@ -1,4 +1,5 @@
-import Debug from 'debug'
+// import Debug from 'debug'
+import logEvent from '../utils/log-event'
 
 /**
  * A plugin that adds the "before" browser-specific logic to the editor.
@@ -6,14 +7,14 @@ import Debug from 'debug'
  * @return {Object}
  */
 
-function DebugPlugin(namespace) {
+function DebugPlugin() {
   /**
    * Debug.
    *
    * @type {Function}
    */
 
-  const debug = Debug(namespace)
+  // const debug = Debug(namespace)
 
   const events = [
     'onBeforeInput',
@@ -41,7 +42,8 @@ function DebugPlugin(namespace) {
 
   for (const eventName of events) {
     plugin[eventName] = function(event, editor, next) {
-      debug(eventName, { event })
+      logEvent(event)
+      // debug(eventName, { event })
       next()
     }
   }

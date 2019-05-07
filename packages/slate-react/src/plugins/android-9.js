@@ -73,7 +73,7 @@ function Android9Plugin() {
         //   before: true,
         // })
       },
-      onTeardown({ editor }) {
+      onTeardown({ editor, isActionHandled }) {
         // lastSelection = getSelectionFromDOM(
         //   window,
         //   editor,
@@ -99,11 +99,30 @@ function Android9Plugin() {
         //   })
         // // })
         // console.log('onTeardown snapshot')
-        requestAnimationFrame(() => {
-          snapshot = new DomSnapshot(window, editor, {
-            before: true,
+
+        /**
+         * What we are trying to accomplish here is to take a snapshot
+         * synchronously after the rendering of the DOM.
+         */
+        if (isActionHandled) {
+          console.log(111)
+          editor.setState({}, () => {
+            console.log(222)
+            snapshot = new DomSnapshot(window, editor, {
+              before: true,
+            })
           })
-        })
+        } else {
+          console.log(333)
+          if (status !== COMPOSING) {
+            snapshot = new DomSnapshot(window, editor, { before: true })
+          }
+        }
+        // requestAnimationFrame(() => {
+        //   snapshot = new DomSnapshot(window, editor, {
+        //     before: true,
+        //   })
+        // })
       },
     },
     /**
@@ -411,35 +430,35 @@ function Android9Plugin() {
         return true
       },
     },
-    /**
-     * Handle `backspace-once-from-end-of-word`
-     *
-     * Deleting once that removes a DOM node.
-     *
-     * - beforeinput:insertCompositionText "wor"
-     * - input:insertCompositionText "wor"
-     */
-    {
-      name: 'backspace-that-removes-element',
-      onFinish(events, { editor }) {
-        const insertCompositionTextEvent = events.find(
-          event =>
-            event.type === 'input' &&
-            event.nativeEvent.inputType === 'insertCompositionText'
-        )
-        if (!insertCompositionTextEvent) return
-        const anchorExists = document.body.contains(snapshot.anchorNode)
-        console.log('anchorNode', snapshot.anchorNode, anchorExists)
-        if (anchorExists) return
-        const selection = snapshot.apply(editor)
-        reconciler.apply(window, editor, {
-          from: 'backspace-that-removes-element',
-        })
-        editor.select(selection)
-        editor.deleteBackward(1)
-        return true
-      },
-    },
+    // /**
+    //  * Handle `backspace-once-from-end-of-word`
+    //  *
+    //  * Deleting once that removes a DOM node.
+    //  *
+    //  * - beforeinput:insertCompositionText "wor"
+    //  * - input:insertCompositionText "wor"
+    //  */
+    // {
+    //   name: 'backspace-that-removes-element',
+    //   onFinish(events, { editor }) {
+    //     const insertCompositionTextEvent = events.find(
+    //       event =>
+    //         event.type === 'input' &&
+    //         event.nativeEvent.inputType === 'insertCompositionText'
+    //     )
+    //     if (!insertCompositionTextEvent) return
+    //     const anchorExists = document.body.contains(snapshot.anchorNode)
+    //     console.log('anchorNode', snapshot.anchorNode, anchorExists)
+    //     if (anchorExists) return
+    //     const selection = snapshot.apply(editor)
+    //     reconciler.apply(window, editor, {
+    //       from: 'backspace-that-removes-element',
+    //     })
+    //     editor.select(selection)
+    //     editor.deleteBackward(1)
+    //     return true
+    //   },
+    // },
     // /**
     //  * Handle `continuous-backspace-from-middle-of-word`
     //  *
@@ -682,6 +701,19 @@ function Android9Plugin() {
   }
 
   /**
+   * On key up.
+   *
+   * @param {Event} event
+   * @param {Editor} editor
+   * @param {Function} next
+   */
+
+  function onKeyUp(event, editor, next) {
+    debug('onKeyUp')
+    actionManager.trigger(event, editor)
+  }
+
+  /**
    * On select.
    *
    * @param {Event} event
@@ -714,6 +746,7 @@ function Android9Plugin() {
     onCompositionUpdate,
     onInput,
     onKeyDown,
+    onKeyUp,
     onSelect,
   }
 }

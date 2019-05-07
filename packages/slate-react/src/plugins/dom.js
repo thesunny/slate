@@ -5,6 +5,7 @@ import Android8Plugin from './android-8'
 import Android9Plugin from './android-9'
 import AfterPlugin from './after'
 import BeforePlugin from './before'
+import DebugPlugin from './debug'
 
 const API_TO_PLUGIN = {
   28: Android9Plugin,
@@ -32,7 +33,13 @@ function DOMPlugin(options = {}) {
   }
   const beforePlugin = BeforePlugin()
   const afterPlugin = AfterPlugin()
-  return [...androidPlugins, beforePlugin, ...plugins, afterPlugin]
+  return [
+    DebugPlugin(),
+    ...androidPlugins,
+    beforePlugin,
+    ...plugins,
+    afterPlugin,
+  ]
 }
 
 /**
