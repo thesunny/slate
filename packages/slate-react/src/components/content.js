@@ -481,7 +481,7 @@ class Content extends React.Component {
       ...props.style,
     }
 
-    debug('render', { props })
+    debug('render', { props, text: document.text })
 
     debug.update('render', {
       text: value.document.text,

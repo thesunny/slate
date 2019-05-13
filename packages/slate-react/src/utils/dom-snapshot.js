@@ -80,4 +80,21 @@ export default class DomSnapshot {
     // editor.moveTo(selection.anchor.key, selection.anchor.offset)
     return selection
   }
+
+  applyDOM() {
+    this.snapshot.apply()
+  }
+
+  applySelection() {
+    const { domRange } = this
+    const domSelection = window.getSelection()
+    domSelection.removeAllRanges()
+    if (domRange) {
+      domSelection.addRange(domRange)
+    }
+  }
+
+  applySelectionToEditor(editor) {
+    editor.select(this.selection)
+  }
 }

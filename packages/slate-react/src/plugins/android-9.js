@@ -2,6 +2,7 @@ import Debug from 'debug'
 import getWindow from 'get-window'
 import pick from 'lodash/pick'
 
+import ReactDOM from 'react-dom'
 import fixSelectionInZeroWidthBlock from '../utils/fix-selection-in-zero-width-block'
 import getSelectionFromDOM from '../utils/get-selection-from-dom'
 import isInputDataLastChar from '../utils/is-input-data-last-char'
@@ -24,6 +25,10 @@ const NONE = 0
 const COMPOSING = 1
 
 function Android9Plugin() {
+  let isKeyPressed = false
+  let keyRepeat = 0
+  let compositionStartSnapshot = null
+
   /**
    * The select manager handles the creation of the `lastSelection`.
    *
@@ -134,14 +139,17 @@ function Android9Plugin() {
      */
     {
       name: 'composition-updates',
-      onTrigger(event) {
+      onTrigger(event, { editor }) {
         switch (event.type) {
           case 'compositionstart':
             status = COMPOSING
+            compositionStartSnapshot = new DomSnapshot(window, editor, {
+              before: true,
+            })
             // Setup the updater by clearing it and adding the current cursor position
             // as the first node to look at.
             reconciler.clear()
-            reconciler.addNode()
+            // reconciler.addNode()
             return
           case 'input':
             if (status === COMPOSING) {
@@ -149,7 +157,7 @@ function Android9Plugin() {
             }
             return
           case 'compositionupdate':
-            reconciler.addNow()
+            // reconciler.addNow()
             return
           case 'compositionend':
             return
@@ -348,88 +356,89 @@ function Android9Plugin() {
      * - keydown "Unidentified"
      * - input:insertCompositionText "befo"
      */
-    {
-      name: 'continuous-backspace-from-middle-or-end-of-word-or-range',
-      // onTrigger(event, { editor }) {
-      //   if (event.type !== 'input') return
-      //   if (
-      //     !['deleteContentBackward', 'insertCompositionText'].includes(
-      //       event.nativeEvent.inputType
-      //     )
-      //   )
-      //     return
-      //   // If we get a match, we want a longer delay before calling `onFinish`
-      //   return 100
-      // },
-      onFinish(events, { editor }) {
-        // Find the number of matching delete events
-        const deleteEvents = events.filter(event => {
-          return (
-            event.type === 'input' &&
-            event.nativeEvent.inputType === 'deleteContentBackward'
-          )
-        })
+    // {
+    //   name: 'continuous-backspace-from-middle-or-end-of-word-or-range',
+    //   // onTrigger(event, { editor }) {
+    //   //   if (event.type !== 'input') return
+    //   //   if (
+    //   //     !['deleteContentBackward', 'insertCompositionText'].includes(
+    //   //       event.nativeEvent.inputType
+    //   //     )
+    //   //   )
+    //   //     return
+    //   //   // If we get a match, we want a longer delay before calling `onFinish`
+    //   //   return 100
+    //   // },
+    //   onFinish(events, { editor }) {
+    //     if (isKeyPressed) return false
+    //     // Find the number of matching delete events
+    //     const deleteEvents = events.filter(event => {
+    //       return (
+    //         event.type === 'input' &&
+    //         event.nativeEvent.inputType === 'deleteContentBackward'
+    //       )
+    //     })
 
-        // If we can't find any deletes then return
-        if (deleteEvents.length === 0) return
+    //     // If we can't find any deletes then return
+    //     if (deleteEvents.length === 0) return
 
-        // Count `insertCompositionText` events because if we start
-        // backspacing at the end of the word, we get these mixed in instead
-        // of `deleteContentBackward` (the `data` is remaining part of word).
-        const insertCompositionEvents = events.filter(event => {
-          return (
-            event.type === 'input' &&
-            event.nativeEvent.inputType === 'insertCompositionText'
-          )
-        })
+    //     // Count `insertCompositionText` events because if we start
+    //     // backspacing at the end of the word, we get these mixed in instead
+    //     // of `deleteContentBackward` (the `data` is remaining part of word).
+    //     const insertCompositionEvents = events.filter(event => {
+    //       return (
+    //         event.type === 'input' &&
+    //         event.nativeEvent.inputType === 'insertCompositionText'
+    //       )
+    //     })
 
-        // revert to before the deletes started
-        snapshot.apply(editor)
+    //     // revert to before the deletes started
+    //     snapshot.apply(editor)
 
-        /**
-         * We select the `lastSelection` after applying the `snapshot`.
-         * This is because even before the `snapshot` is taken (in the `onSetup`
-         * phase), Android collapses the selection. So in the case of a
-         * backspace, we rely on the selection from the previous action.
-         */
-        // if (lastSelection) editor.select(lastSelection)
+    //     /**
+    //      * We select the `lastSelection` after applying the `snapshot`.
+    //      * This is because even before the `snapshot` is taken (in the `onSetup`
+    //      * phase), Android collapses the selection. So in the case of a
+    //      * backspace, we rely on the selection from the previous action.
+    //      */
+    //     // if (lastSelection) editor.select(lastSelection)
 
-        // The backspace count is the combination of `deleteContentBackward`
-        // and `insertCompositionText` events we find.
-        const backspaceCount =
-          deleteEvents.length + insertCompositionEvents.length
+    //     // The backspace count is the combination of `deleteContentBackward`
+    //     // and `insertCompositionText` events we find.
+    //     const backspaceCount =
+    //       deleteEvents.length + insertCompositionEvents.length
 
-        editor.deleteBackward(backspaceCount)
-        // if (lastSelection == null || lastSelection.isCollapsed) {
-        //   //   console.log(1)
-        //   // If the `lastSelection` is collapsed, we `deleteBackward` the
-        //   // correct number of times.
-        //   //
-        //   // WARNING:
-        //   // You may be tempted to merge this code with the code below but
-        //   // it will not work. This may be a bug in Slate's implementation.
-        //   // Before removing this if/else, make sure it works for continuous
-        //   // backspace starting from an expanded and collapsed range.
-        //   editor.deleteBackward(backspaceCount)
-        // } else {
-        //   console.log(2)
-        //   // If the `lastSelection` is not collapsed (i.e. it is expanded)
-        //   // then we `deleteBackward(1)` in order to delete the range.
-        //   // We then `deleteBackward` the remaining count if there are any.
-        //   // Slate will not allow us to call `deleteBackward` with the full
-        //   // count. It will always only delete the current selection.
-        //   //
-        //   // WARNING:
-        //   // You may be tempted to merge with above. At time of this comment,
-        //   // it won't work.
-        //   editor.deleteBackward(1)
-        //   if (backspaceCount > 1) {
-        //     editor.deleteBackward(backspaceCount - 1)
-        //   }
-        // }
-        return true
-      },
-    },
+    //     editor.deleteBackward(backspaceCount)
+    //     // if (lastSelection == null || lastSelection.isCollapsed) {
+    //     //   //   console.log(1)
+    //     //   // If the `lastSelection` is collapsed, we `deleteBackward` the
+    //     //   // correct number of times.
+    //     //   //
+    //     //   // WARNING:
+    //     //   // You may be tempted to merge this code with the code below but
+    //     //   // it will not work. This may be a bug in Slate's implementation.
+    //     //   // Before removing this if/else, make sure it works for continuous
+    //     //   // backspace starting from an expanded and collapsed range.
+    //     //   editor.deleteBackward(backspaceCount)
+    //     // } else {
+    //     //   console.log(2)
+    //     //   // If the `lastSelection` is not collapsed (i.e. it is expanded)
+    //     //   // then we `deleteBackward(1)` in order to delete the range.
+    //     //   // We then `deleteBackward` the remaining count if there are any.
+    //     //   // Slate will not allow us to call `deleteBackward` with the full
+    //     //   // count. It will always only delete the current selection.
+    //     //   //
+    //     //   // WARNING:
+    //     //   // You may be tempted to merge with above. At time of this comment,
+    //     //   // it won't work.
+    //     //   editor.deleteBackward(1)
+    //     //   if (backspaceCount > 1) {
+    //     //     editor.deleteBackward(backspaceCount - 1)
+    //     //   }
+    //     // }
+    //     return true
+    //   },
+    // },
     // // /**
     // //  * Handle `backspace-once-from-end-of-word`
     // //  *
@@ -532,38 +541,54 @@ function Android9Plugin() {
      */
     {
       name: 'default-composition-end',
-      onFinish(events, { editor }) {
-        const compositionEndEvent = events.find(event => {
-          return event.type === 'compositionend'
+      onTrigger(event, { editor }) {
+        if (event.type !== 'compositionend') return
+        ReactDOM.flushSync(() => {
+          status = NONE
+          // Required when deleting a word and after you delete the last letter
+          // in the word one by one.
+          reconciler.addNode()
+          reconciler.apply(window, editor, { from: 'default-composition-end' })
+          compositionStartSnapshot.applyDOM()
+          console.log('text', editor.value.document.text)
         })
-        if (!compositionEndEvent) return
-        status = NONE
-        // Required when deleting a word and after you delete the last letter
-        // in the word one by one.
-        reconciler.addNode()
-        reconciler.apply(window, editor, { from: 'default-composition-end' })
         return true
       },
+      // onFinish(events, { editor }) {
+      //   const compositionEndEvent = events.find(event => {
+      //     return event.type === 'compositionend'
+      //   })
+      //   if (!compositionEndEvent) return
+      //   ReactDOM.flushSync(() => {
+      //     status = NONE
+      //     // Required when deleting a word and after you delete the last letter
+      //     // in the word one by one.
+      //     reconciler.addNode()
+      //     reconciler.apply(window, editor, { from: 'default-composition-end' })
+      //   })
+      //   return true
+      // },
     },
     /**
      * Handle `composition-less-update`
-     * 
-     * It's key signature is that there is a `keyup` and we aren't in the
-     * middle of a composition (i.e. there is no unresolved `compositionstart`
-     * which would indicate we are in a composition)
+     *
+     * Happens when:
+     *
+     * - We are not in a composition
+     * - There is a `keyup` event
      */
-    {
-      name: 'composition-less-update',
-      onFinish(events, { editor }) {
-        if (status === COMPOSING) return
-        const keyupEvent = events.find(event => event.type === 'keyup')
-        if (!keyupEvent) return
-        reconciler.clear()
-        reconciler.addNode()
-        reconciler.apply(window, editor, { from: 'composition-less-update' })
-        return true
-      },
-    },
+    // {
+    //   name: 'composition-less-update',
+    //   onFinish(events, { editor }) {
+    //     if (status === COMPOSING) return
+    //     const keyupEvent = events.find(event => event.type === 'keyup')
+    //     if (!keyupEvent) return
+    //     reconciler.clear()
+    //     reconciler.addNode()
+    //     reconciler.apply(window, editor, { from: 'composition-less-update' })
+    //     return true
+    //   },
+    // },
   ])
 
   /**
@@ -716,6 +741,11 @@ function Android9Plugin() {
 
   function onKeyDown(event, editor, next) {
     debug('onKeyDown')
+    if (!isKeyPressed) {
+      isKeyPressed = true
+      keyRepeat = 0
+    }
+    keyRepeat++
     actionManager.trigger(event, editor)
   }
 
@@ -730,6 +760,7 @@ function Android9Plugin() {
   function onKeyUp(event, editor, next) {
     debug('onKeyUp')
     actionManager.trigger(event, editor)
+    isKeyPressed = false
   }
 
   /**

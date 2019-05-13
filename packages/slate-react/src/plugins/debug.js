@@ -34,6 +34,8 @@ function DebugPlugin() {
     'onFocus',
     'onInput',
     'onKeyDown',
+    'onKeyPress',
+    'onKeyUp',
     'onPaste',
     'onSelect',
   ]

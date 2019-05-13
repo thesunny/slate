@@ -15,6 +15,57 @@ import findPoint from './find-point'
  */
 
 export default function setTextFromDomNode(window, editor, domNode) {
+  if (!window.document.body.contains(domNode)) {
+    /**
+     * All this code finds the missing node and then removes the inner text
+     * from it. The painful part right now is that the text after the missing
+     * node is somehow
+     */
+    console.log('domNode', domNode)
+    console.log('parent', domNode.parentElement)
+    console.log('grandparent', domNode.parentElement.parentElement)
+    console.log(
+      'grandgrandparent',
+      domNode.parentElement.parentElement.parentElement
+    )
+    const { value } = editor
+    const { document, selection } = value
+    const { parentElement } = domNode
+    const dataOffsetNode = parentElement.closest('[data-offset-key]')
+    const dataOffsetKey = dataOffsetNode.getAttribute('data-offset-key')
+    const [key, posAsString] = dataOffsetKey.split(':')
+    const pos = parseInt(posAsString)
+    const node = document.getDescendant(key)
+    console.log('node', { node: node.toJSON() })
+    const leaves = node.getLeaves()
+    // const leaf = leaves.get(pos)
+    let start = 0
+    let end = 0
+    let leaf
+    // console.log({ leaf, leaves })
+    for (let i = 0; i <= pos; i++) {
+      leaf = leaves.get(i)
+      start = end
+      end += leaf.text.length
+    }
+    console.log({ leaf, key, start, end })
+    let entire = selection.moveAnchorTo(key, start).moveFocusTo(key, end)
+    // entire = document.resolveRange(entire)
+    console.log(entire.toJSON(), entire)
+    editor.deleteAtRange(entire)
+    console.log(editor.value.document.text, editor.value.document.toJSON())
+    console.log('after delete at range')
+    if (pos > 0) {
+      const beforeDataOffsetKey = `${key}:${pos - 1}`
+      const selector = `[data-offset-key="${beforeDataOffsetKey}"]`
+      // const beforeNode = window.document.body.closest(selector)
+      const beforeNode = window.document.querySelector(selector)
+      console.log({ beforeNode, beforeDataOffsetKey, selector })
+      setTextFromDomNode(window, editor, beforeNode)
+    }
+
+    return
+  }
   const point = findPoint(domNode, 0, editor)
   if (!point) return
 
@@ -64,4 +115,6 @@ export default function setTextFromDomNode(window, editor, domNode) {
 
   // Change the current value to have the leaf's text replaced.
   editor.insertTextAtRange(entire, textContent, leaf.marks)
+
+  console.log('set-text-from-dom-node', editor.value.document.text)
 }
