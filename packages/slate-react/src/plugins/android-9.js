@@ -8,7 +8,7 @@ import getSelectionFromDOM from '../utils/get-selection-from-dom'
 import isInputDataLastChar from '../utils/is-input-data-last-char'
 import setSelectionFromDom from '../utils/set-selection-from-dom'
 import setTextFromDomNode from '../utils/set-text-from-dom-node'
-import ActionManager from '../utils/action-manager'
+import ActionManager from '../utils/action-manager-2'
 import DomSnapshot from '../utils/dom-snapshot'
 import DelayedExecutor from '../utils/executor'
 import Reconciler from '../utils/reconciler'
@@ -28,6 +28,7 @@ function Android9Plugin() {
   let isKeyPressed = false
   let keyRepeat = 0
   let compositionStartSnapshot = null
+  let compositionEndSnapshot = null
 
   /**
    * The select manager handles the creation of the `lastSelection`.
@@ -56,7 +57,7 @@ function Android9Plugin() {
   //   },
   // ])
   const actionManager = new ActionManager({}, [
-    actionManagerLogger,
+    // actionManagerLogger,
     // {
     //   name: 'last-select-inaction-manager',
     //   onTeardown({ editor }) {
@@ -139,7 +140,8 @@ function Android9Plugin() {
      */
     {
       name: 'composition-updates',
-      onTrigger(event, { editor }) {
+      onTrigger({ event, editor }) {
+        // onTrigger(arg) {
         switch (event.type) {
           case 'compositionstart':
             status = COMPOSING
@@ -149,19 +151,26 @@ function Android9Plugin() {
             // Setup the updater by clearing it and adding the current cursor position
             // as the first node to look at.
             reconciler.clear()
-            // reconciler.addNode()
-            return
+            reconciler.addNode()
+            console.log('compositionstart addNode()')
+            break
+          // reconciler.addNode()
           case 'input':
             if (status === COMPOSING) {
               reconciler.addNode()
             }
-            return
+            break
           case 'compositionupdate':
-            // reconciler.addNow()
-            return
+            break
           case 'compositionend':
-            return
+            console.log('take compositionEndSnapshot', { editor })
+            compositionEndSnapshot = new DomSnapshot(window, editor, {
+              before: true,
+            })
+            status = NONE
+            break
         }
+        return false
       },
     },
     /**
@@ -177,18 +186,16 @@ function Android9Plugin() {
      */
     {
       name: 'enter',
-      onTrigger(event, { editor }) {
-        if (event.type !== 'keydown') return
-        if (event.key !== 'Enter') return
-        event.preventDefault()
-        reconciler.addNode()
-        reconciler.apply(window, editor, { from: 'onKeyDown:enter' })
-        editor.splitBlock()
+      onTrigger({ event, editor }) {
+        if (event.type !== 'keydown') return false
+        if (event.key !== 'Enter') return false
+        ReactDOM.flushSync(() => {
+          event.preventDefault()
+          reconciler.addNode()
+          reconciler.apply(window, editor, { from: 'onKeyDown:enter' })
+          editor.splitBlock()
+        })
         return true
-        // return () => {
-        //   // reconciler.apply(window, editor, { from: 'onKeyDown:enter' })
-        //   // editor.splitBlock()
-        // }
       },
     },
     // /**
@@ -340,6 +347,29 @@ function Android9Plugin() {
     //   },
     // },
     /**
+     *
+     */
+    {
+      name: 'composition-less-backspace',
+      onTrigger({ event, editor, events }) {
+        if (event.type !== 'timeout') return false
+        if (status === COMPOSING) return false
+        const backspaceEvent = events.find(event => {
+          return (
+            event.type === 'input' &&
+            event.nativeEvent.inputType === 'deleteContentBackward'
+          )
+        })
+        if (!backspaceEvent) return false
+        console.log('COMPOSITION_LESS_BACKSACE')
+        ReactDOM.flushSync(() => {
+          snapshot.apply(editor)
+          editor.deleteBackward(1)
+        })
+        return true
+      },
+    },
+    /**
      * Handle `continuous-backspace-from-end-of-word`
      *
      * Deleting from end of `before it` to `befo`
@@ -468,35 +498,74 @@ function Android9Plugin() {
     // //     return true
     // //   },
     // // },
-    // // /**
-    // //  * Handle `continuous-backspace-from-middle-of-word`
-    // //  *
-    // //  * - compositionend
-    // //  * - keydown "Unidentified"
-    // //  * - beforeinput:deleteContentBackward
-    // //  * - input:deleteContentBackward
-    // //  */
-    // // {
-    // //   name: 'continuous-backspace-from-middle-of-word',
-    // //   onFinish(events, { editor }) {
-    // //     // Find the number of matching delete events
-    // //     const deleteEvents = events.filter(event => {
-    // //       return (
-    // //         event.type === 'input' &&
-    // //         event.nativeEvent.inputType === 'deleteContentBackward'
-    // //       )
-    // //     })
-    // //     // If we can't find any deletes then return
-    // //     if (deleteEvents.length === 0) return
-    // //     // revert to before the deletes started
-    // //     snapshot.apply(editor)
-    // //     // console.log('lastSelection', lastSelection.toJS())
-    // //     editor.select(lastSelection)
-    // //     // delete the same number of times that Android told us it did
-    // //     editor.deleteBackward(deleteEvents.length)
-    // //     return true
-    // //   },
-    // // },
+    /**
+     * Handle `continuous-backspace-from-middle-of-word`
+     *
+     * - [compositionend]
+     * - keydown "Unidentified"
+     * - beforeinput:deleteContentBackward
+     * - input:deleteContentBackward
+     */
+    // {
+    //   name: 'continuous-backspace-from-middle-of-word',
+    //   onTrigger({ event, editor }) {
+    //     // // Find the number of matching delete events
+    //     // const deleteEvents = events.filter(event => {
+    //     //   return (
+    //     //     event.type === 'input' &&
+    //     //     event.nativeEvent.inputType === 'deleteContentBackward'
+    //     //   )
+    //     // })
+    //     // // If we can't find any deletes then return
+    //     // if (deleteEvents.length === 0) return
+    //     // // revert to before the deletes started
+    //     // snapshot.apply(editor)
+    //     // // console.log('lastSelection', lastSelection.toJS())
+    //     // editor.select(lastSelection)
+    //     // // delete the same number of times that Android told us it did
+    //     // editor.deleteBackward(deleteEvents.length)
+    //     // return true
+    //     if (status === COMPOSING) return false
+    //     // event.preventDefault()
+    //     const match =
+    //       event.type === 'input' &&
+    //       event.nativeEvent.inputType === 'deleteContentBackward'
+    //     if (!match) return false
+    //     event.preventDefault()
+    //     ReactDOM.flushSync(() => {
+    //       if (compositionEndSnapshot) {
+    //         compositionEndSnapshot.apply(editor)
+    //       }
+    //       editor.deleteBackward()
+    //     })
+    //     return true
+    //   },
+    // },
+    {
+      name: 'composition-end-with-backspace',
+      onTrigger({ event, events, editor }) {
+        if (event.type !== 'timeout') return false
+        if (!events.find(e => e.type === 'compositionend')) return false
+        const backspaceEvent = events.find(event => {
+          return (
+            event.type === 'input' &&
+            event.nativeEvent.inputType === 'deleteContentBackward'
+          )
+        })
+        if (!backspaceEvent) return false
+        ReactDOM.flushSync(() => {
+          // reconciler.addNode()
+          // reconciler.apply(window, editor, {
+          //   from: 'composition-end-with-backspace',
+          // })
+          snapshot.applySelectionToEditor(editor)
+          snapshot.applyDOM()
+          snapshot.applySelection()
+          editor.deleteBackward(1)
+        })
+        return true
+      },
+    },
     /**
      * ## Type at end of word
      *
@@ -541,17 +610,18 @@ function Android9Plugin() {
      */
     {
       name: 'default-composition-end',
-      onTrigger(event, { editor }) {
-        if (event.type !== 'compositionend') return
+      onTrigger({ event, events, editor }) {
+        if (event.type !== 'timeout') return false
+        if (!events.find(e => e.type === 'compositionend')) return false
         ReactDOM.flushSync(() => {
-          status = NONE
           // Required when deleting a word and after you delete the last letter
           // in the word one by one.
           reconciler.addNode()
           reconciler.apply(window, editor, { from: 'default-composition-end' })
-          compositionStartSnapshot.applyDOM()
+          // compositionStartSnapshot.applyDOM()
           console.log('text', editor.value.document.text)
         })
+        status = NONE
         return true
       },
       // onFinish(events, { editor }) {
@@ -773,7 +843,7 @@ function Android9Plugin() {
 
   function onSelect(event, editor, next) {
     debug('onSelect', { event, status })
-    actionManager.refresh(event, editor)
+    // actionManager.refresh(event, editor)
 
     // actionManager.trigger(event, editor)
     // selectManager.trigger(event, editor, next)
