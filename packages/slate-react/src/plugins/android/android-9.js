@@ -24,6 +24,7 @@ const NONE = 0
 const COMPOSING = 1
 
 function Android9Plugin() {
+  let isComposing = false
   let isKeyPressed = false
   let keyRepeat = 0
   let compositionStartSnapshot = null
