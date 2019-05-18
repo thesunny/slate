@@ -349,26 +349,26 @@ function Android9Plugin() {
     /**
      *
      */
-    {
-      name: 'composition-less-backspace',
-      onTrigger({ event, editor, events }) {
-        if (event.type !== 'timeout') return false
-        if (status === COMPOSING) return false
-        const backspaceEvent = events.find(event => {
-          return (
-            event.type === 'input' &&
-            event.nativeEvent.inputType === 'deleteContentBackward'
-          )
-        })
-        if (!backspaceEvent) return false
-        console.log('COMPOSITION_LESS_BACKSACE')
-        ReactDOM.flushSync(() => {
-          snapshot.apply(editor)
-          editor.deleteBackward(1)
-        })
-        return true
-      },
-    },
+    // {
+    //   name: 'composition-less-backspace',
+    //   onTrigger({ event, editor, events }) {
+    //     if (event.type !== 'timeout') return false
+    //     if (status === COMPOSING) return false
+    //     const backspaceEvent = events.find(event => {
+    //       return (
+    //         event.type === 'input' &&
+    //         event.nativeEvent.inputType === 'deleteContentBackward'
+    //       )
+    //     })
+    //     if (!backspaceEvent) return false
+    //     console.log('COMPOSITION_LESS_BACKSACE')
+    //     ReactDOM.flushSync(() => {
+    //       snapshot.apply(editor)
+    //       editor.deleteBackward(1)
+    //     })
+    //     return true
+    //   },
+    // },
     /**
      * Handle `continuous-backspace-from-end-of-word`
      *
@@ -541,31 +541,31 @@ function Android9Plugin() {
     //     return true
     //   },
     // },
-    {
-      name: 'composition-end-with-backspace',
-      onTrigger({ event, events, editor }) {
-        if (event.type !== 'timeout') return false
-        if (!events.find(e => e.type === 'compositionend')) return false
-        const backspaceEvent = events.find(event => {
-          return (
-            event.type === 'input' &&
-            event.nativeEvent.inputType === 'deleteContentBackward'
-          )
-        })
-        if (!backspaceEvent) return false
-        ReactDOM.flushSync(() => {
-          // reconciler.addNode()
-          // reconciler.apply(window, editor, {
-          //   from: 'composition-end-with-backspace',
-          // })
-          snapshot.applySelectionToEditor(editor)
-          snapshot.applyDOM()
-          snapshot.applySelection()
-          editor.deleteBackward(1)
-        })
-        return true
-      },
-    },
+    // {
+    //   name: 'composition-end-with-backspace',
+    //   onTrigger({ event, events, editor }) {
+    //     if (event.type !== 'timeout') return false
+    //     if (!events.find(e => e.type === 'compositionend')) return false
+    //     const backspaceEvent = events.find(event => {
+    //       return (
+    //         event.type === 'input' &&
+    //         event.nativeEvent.inputType === 'deleteContentBackward'
+    //       )
+    //     })
+    //     if (!backspaceEvent) return false
+    //     ReactDOM.flushSync(() => {
+    //       // reconciler.addNode()
+    //       // reconciler.apply(window, editor, {
+    //       //   from: 'composition-end-with-backspace',
+    //       // })
+    //       snapshot.applySelectionToEditor(editor)
+    //       snapshot.applyDOM()
+    //       snapshot.applySelection()
+    //       editor.deleteBackward(1)
+    //     })
+    //     return true
+    //   },
+    // },
     /**
      * ## Type at end of word
      *

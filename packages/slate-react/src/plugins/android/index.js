@@ -9,9 +9,9 @@ const API_TO_PLUGIN = {
 }
 
 function AndroidPlugin() {
-  const AndroidPlugin = API_TO_PLUGIN[ANDROID_API_VERSION]
-  if (androidPlugin) {
-    return AndroidPlugin()
+  const Plugin = API_TO_PLUGIN[ANDROID_API_VERSION]
+  if (Plugin) {
+    return Plugin()
   }
   return {}
 }
