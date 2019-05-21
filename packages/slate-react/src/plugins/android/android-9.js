@@ -56,7 +56,7 @@ function Android9Plugin() {
   //     },
   //   },
   // ])
-  const actionManager = new ActionManager({}, [
+  const actionManager = new ActionManager([
     // actionManagerLogger,
     // {
     //   name: 'last-select-inaction-manager',
@@ -498,6 +498,43 @@ function Android9Plugin() {
     // //     return true
     // //   },
     // // },
+
+    {
+      name: 'continuous-backspace-from-middle-of-word',
+      onTrigger({ event, editor }) {
+        // // Find the number of matching delete events
+        // const deleteEvents = events.filter(event => {
+        //   return (
+        //     event.type === 'input' &&
+        //     event.nativeEvent.inputType === 'deleteContentBackward'
+        //   )
+        // })
+        // // If we can't find any deletes then return
+        // if (deleteEvents.length === 0) return
+        // // revert to before the deletes started
+        // snapshot.apply(editor)
+        // // console.log('lastSelection', lastSelection.toJS())
+        // editor.select(lastSelection)
+        // // delete the same number of times that Android told us it did
+        // editor.deleteBackward(deleteEvents.length)
+        // return true
+        if (status === COMPOSING) return false
+        // event.preventDefault()
+        const match =
+          event.type === 'input' &&
+          event.nativeEvent.inputType === 'deleteContentBackward'
+        if (!match) return false
+        event.preventDefault()
+        ReactDOM.flushSync(() => {
+          if (compositionEndSnapshot) {
+            compositionEndSnapshot.applyContentToDOM()
+            compositionEndSnapshot.applySelectionToEditor(editor)
+          }
+          editor.deleteBackward()
+        })
+        return true
+      },
+    },
     /**
      * Handle `continuous-backspace-from-middle-of-word`
      *
@@ -610,9 +647,9 @@ function Android9Plugin() {
      */
     {
       name: 'default-composition-end',
-      onTimeout({ events, editor }) {
-        if (!events.find(e => e.type === 'compositionend')) return false
-        console.log({ events })
+      onTrigger({ event, editor }) {
+        if (event.type !== 'compositionend') return false
+        // if (!events.find(e => e.type === 'compositionend')) return false
         ReactDOM.flushSync(() => {
           // Required when deleting a word and after you delete the last letter
           // in the word one by one.

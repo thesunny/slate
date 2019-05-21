@@ -1,279 +1,195 @@
 import Debug from 'debug'
-import ReactDOM from 'react-dom'
 import invariant from 'tiny-invariant'
-import logEvent from './log-event'
-
-function isFunction(fn) {
-  return fn && {}.toString.call(fn) === '[object Function]'
-}
-
-function Timer(fn) {
-  let stopFn = null
-
-  /**
-   * Start the timer using a `requestAnimationFrame` if no interval is
-   * specified or using `setTimeout` if an interval is specified
-   *
-   * @param {number} [interval]
-   */
-
-  function start(interval) {
-    if (interval == null) {
-      const frameId = requestAnimationFrame(fn)
-      stopFn = () => cancelAnimationFrame(frameId)
-    } else {
-      const timeoutId = setTimeout(fn, interval)
-      stopFn = () => clearTimeout(timeoutId)
-    }
-  }
-
-  /**
-   * Stop the timer
-   */
-
-  function stop() {
-    stopFn()
-  }
-
-  /**
-   * Refresh the timer which basically means don't fire it and restart the
-   * timer to push back the point in time at which the `fn` gets called.
-   *
-   * @param {number} [interval]
-   */
-
-  function refresh(interval) {
-    stop()
-    start(interval)
-  }
-
-  return { start, stop, refresh }
-}
+import Timer from './timer'
+import stringifyEvent from '../debug/stringify-event'
 
 const debug = Debug('slate:action-manager')
 
-/**
- * Execute `fn` and then render its effects to the DOM synchronously.
- */
-function sync(fn) {
-  ReactDOM.flushSync(fn)
-}
+function ActionManager(handlers) {
+  /**
+   * Pre-filter handlers for better performance
+   */
 
-function ActionManager(options, handlers) {
-  const INITIAL_STATE = {
-    // has an action been started yet?
-    isStarted: false,
-    finish: null,
-    events: [],
-    mutations: [],
+  const filteredHandlers = {
+    onSetup: handlers.filter(h => h.onSetup).map(h => h.onSetup),
+    onTeardown: handlers.filter(h => h.onTeardown).map(h => h.onTeardown),
+    onTrigger: handlers.filter(h => h.onTrigger).map(h => h.onTrigger),
+    onTimeout: handlers.filter(h => h.onTimeout).map(h => h.onTimeout),
   }
 
   /**
-   * We initialize ActionManager by tracking mutations only once for its
-   * entire lifetime. It must be initialized only when it gets is first
-   * event.
+   * Timer object that calls `timeout` method when timer runs out
+   *
+   * @type {Timer}
    */
 
-  let isInitialized = false
+  let timer = new Timer(timeout)
 
   /**
-   * The initialize method lets us log all the DOM mutations.
-   *
-   * @param {Element} element
+   * State Object
    */
 
-  function initialize(element) {
-    debug('*** INITIALIZE ***')
-    const config = {
-      childList: true,
-      attributes: true,
-      characterData: true,
-      subtree: true,
-      attributeOldValue: true,
-      charaterDataOldValue: true,
+  let state
+
+  /**
+   * Reset `state` to a copy of `INITIAL_STATE`
+   *
+   * Called in two places (1) at first use and (2) when we `finish`
+   */
+
+  function initializeState() {
+    state = {
+      isAction: false,
+      editor: null, // Editor
+      finisher: null, // object in form {onTrigger, onFinish}
+      interval: 20,
+      events: [],
+      mutations: [],
     }
+  }
 
-    // childList, attributes, characterData, subtree, attributeOldValue, characterDataOldValue, attributeFilter
-    // https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
-    // https://dom.spec.whatwg.org/#mutationobserver
-    const observer = new MutationObserver(mutate)
+  // initialize state before first use
+  initializeState()
 
-    observer.observe(element, config)
+  /**
+   * `start` is called immediately after the first `trigger`
+   */
+
+  function start() {
+    debug('<== START ===')
+    state.isAction = true
+    console.log({ filteredHandlers })
+    filteredHandlers.onSetup.forEach(h => h(state))
   }
 
   /**
-   * Create a new Timer object that executes the `timeout` function when its
-   * timer runs out (usually between user actions like pressing a key or
-   * clicking a button)
+   * `finish` is called when we have completed an `action`, either by
+   * a handler returning true, a finisher returning true or the timeout firing
    */
-  const timer = new Timer(timeout)
 
-  let state = { ...INITIAL_STATE }
-
-  function getArg(object = {}) {
-    return { ...state, ...object }
+  function finish(from) {
+    filteredHandlers.onTeardown.forEach(h => h(state))
+    debug('state before', state)
+    // `initializeState` includes `state.action = false` to match `start`
+    initializeState()
+    debug('--- FINISH -->')
+    debug('state after', state)
   }
 
   /**
-   * Preprocess handlers to create subsets that are more performant
-   */
-  const triggerHandlers = handlers.filter(h => h.onTrigger)
-  const setupMethods = handlers.filter(h => h.onSetup).map(h => h.onSetup)
-  const teardownMethods = handlers
-    .filter(h => h.onTeardown)
-    .map(h => h.onTeardown)
-
-  /**
-   * Call all the `setup` methods
-   */
-  function setup() {
-    setupMethods.forEach(fn => fn(getArg()))
-  }
-
-  /**
-   * Call all the `teardown` methods
-   */
-  function teardown() {
-    teardownMethods.forEach(fn => fn(getArg()))
-    state = { ...INITIAL_STATE }
-  }
-
-  /**
-   * @param {boolean|function} result
-   */
-  function handleResult(result) {
-    console.log('handleResult', { result })
-    if ([true, false].includes(result)) return result
-    invariant(isFunction(result))
-    state.finishHandler = result
-    return false
-  }
-
-  /**
-   * Handle events including both `trigger` events which come from events in
-   * the DOM and `timeout` events which fire when there is inactivity in
-   * the browser, usually between sets of events fired by the user.
+   * Matches using the current finisher for the given type.
    *
-   * When an `event` comes in, we can handle it in one of two ways:
-   *
-   * - First, we always start checking to see if any of the `handler.onTrigger`
-   *   functions will return a value telling us if it's been handled `true`,
-   *   it hasn't been handled yet `true` or it would be considered handled at
-   *   some future `event` in which case it returns a `function`. This `function`
-   *   because a special type of handler called a `finishHandler`
-   * - Second, if there is a `finishHandler`, we run that and see if it returns
-   *   a result which we handle just like before. If `true` it's handled,
-   *   If `false` it's not and if a `function` we set a new `finishHandler`
-   *   which means we want for another event to match.
-   *
-   * @param {Event} event
-   * @return {boolean} finished? are we done with the timer?
+   * @param {string} type
+   * @param {object} options
    */
-  function handleEvent(event) {
-    let result = false
-    if (state.finishHandler) {
-      result = state.finishHandler(getArg())
-      if (result) {
-        debug(`FINISH WITH ${JSON.stringify(result)}`)
-      }
-    } else {
-      const arg = getArg({ event })
-      console.log({ arg })
 
-      const matchedHandler = triggerHandlers.find(handler => {
-        // handlers must return `true`, `false` or a function. They must not
-        // return `undefined`
-        result = handler.onTrigger(arg)
-        console.log('CHECKING MATCH', result)
-        return !!result
-      })
-      if (matchedHandler) {
-        debug(`----- HANDLE - ${JSON.stringify(matchedHandler.name)}`)
-      }
+  function matchFinisher(type, options) {
+    const fn = state.finisher[type]
+    // if there is no method for this finisher's type, return false
+    if (fn == null) return false
+    const match = fn(options)
+    if (match) {
+      debug(`match finisher during ${type}`, match, options)
     }
-    return handleResult(result)
+    return match
   }
 
   /**
-   * Handle events that originate from the DOM.
+   * Matches using the handlers for the given type
+   *
+   * @param {string} type
+   * @param {object} options
+   */
+
+  function matchHandler(type, options) {
+    let match = false
+    const handler = filteredHandlers[type].find(handler => {
+      match = handler(options)
+      return match
+    })
+    if (match) {
+      const when =
+        type === 'onTrigger' ? stringifyEvent(options.event) : 'timeout'
+      debug(`--- MATCH ${handler.name} (${when})`, match, options)
+    }
+    return match
+  }
+
+  /**
+   * Matches finisher and handlers for given type
+   *
+   * @param {string} type
+   * @param {object} options
+   */
+
+  function matchByType(type, options) {
+    return state.finisher
+      ? matchFinisher(type, options)
+      : matchHandler(type, options)
+  }
+
+  /**
+   * Trigger event
    *
    * @param {Event} event
    * @param {Editor} editor
    */
-  function trigger(event, editor = state.editor) {
-    invariant(event, 'event is required')
-    invariant(editor, 'editor is require')
 
-    // add `editor` to `state`
+  function trigger(event, editor) {
+    invariant(editor, 'editor is required')
+
+    // add editor to state (keep before `start`)
     state.editor = editor
 
-    // Set `state.element` from the event if it's available.
-    if (!state.element && event.target) {
-      state.element = event.target.closest(`[data-slate-editor]`)
-      if (!isInitialized) {
-        initialize(state.element)
-        isInitialized = true
-      }
+    timer.stop()
+
+    if (!state.isAction) {
+      state.isAction = true
+      start()
     }
 
-    // on the first trigger, we set set a flag that we have now started an
-    // action and to run all the `handler.onSetup` methods.
-    if (!state.isStarted) {
-      debug('<==== START ===')
-      state.isStarted = true
-      setup()
-    } else {
-      timer.stop()
-    }
-
-    // We must persist React events if we want to keep them around
+    // If the event is a React event, persist it (i.e. do not reuse)
     if (event.persist) event.persist()
 
-    // Add to the stack of evevents in the state
+    // save the event
     state.events.push(event)
 
-    // handleEvent
-    let isFinished = handleEvent(event)
-    if (event.type === 'timeout') {
-      isFinished = true
-    }
+    // get a matcing result from the trigger
+    const match = matchByType('onTrigger', { event, ...state })
 
-    console.log({ isStarted: state.isStarted, isFinished })
-
-    // If we aren't finished, we need to restart the timeout `timer`.
-    // If we are finished, we set a flag that we haven't started an action
-    // and to run all the `handler.onTeardown` methods
-    if (!isFinished) {
+    if (match === false) {
+      // the event doesn't match, restart the timer so that timeout can fire.
+      timer.start()
+    } else if (match === true) {
+      // If `match === true` the handler handled the `event` immediately.
+      finish(`trigger`)
+    } else if (typeof match === 'object') {
+      // If the match is an `object` then we are declaring that the event matches
+      // but that we aren't finished the action. That match `object` is in the
+      // form of `{onTrigger, onTimeout}`.
+      //
+      // The action is finished on the earlier of:
+      //
+      // - a timeout at which time `match.onTimeout` is called.
+      // - a trigger matches `match.onTrigger` which can itself return
+      //   an `object` which would follow the same rules.
+      state.finisher = result
       timer.start()
     } else {
-      state.isStarted = false
-      teardown()
-      debug('----- FINISH -->')
+      throw new Error(`Don't know how to handle result ${match}`)
     }
   }
 
   /**
-   * Handle the case where the Timer fires.
-   *
-   * It's just like a regular `trigger` except we give it a custom event
-   * with type `timeout`. This lets us handle the `timeout` just like any
-   * other trigger.
+   * Handle the timeout
    */
 
   function timeout() {
-    debug('----- TIMEOUT --')
-    const event = { type: 'timeout' }
-
-    trigger(event)
+    matchByType('onTimeout', state)
+    finish('timeout')
   }
 
-  function mutate(mutationList) {
-    const mutations = Array.from(mutationList)
-    console.log('mutations', mutations)
-    state.mutations.push(...mutations)
-  }
-
-  return { trigger, mutate }
+  return { trigger }
 }
 
 export default ActionManager

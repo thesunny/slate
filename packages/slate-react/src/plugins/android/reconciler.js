@@ -59,6 +59,7 @@ function Reconciler() {
 
     // Reconcile each node
     nodes.forEach(node => editor.reconcileDOMNode(node))
+    console.log('reconciler selection', selection)
 
     editor.select(selection)
 
