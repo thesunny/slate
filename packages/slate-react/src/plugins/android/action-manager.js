@@ -184,6 +184,7 @@ function ActionManager(options, handlers) {
         // handlers must return `true`, `false` or a function. They must not
         // return `undefined`
         result = handler.onTrigger(arg)
+        console.log('CHECKING MATCH', result)
         return !!result
       })
       if (matchedHandler) {

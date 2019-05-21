@@ -144,7 +144,7 @@ function Android9Plugin() {
         // onTrigger(arg) {
         switch (event.type) {
           case 'compositionstart':
-            status = COMPOSING
+            isComposing = true
             compositionStartSnapshot = new DomSnapshot(window, editor, {
               before: true,
             })
@@ -156,7 +156,7 @@ function Android9Plugin() {
             break
           // reconciler.addNode()
           case 'input':
-            if (status === COMPOSING) {
+            if (isComposing) {
               reconciler.addNode()
             }
             break
@@ -167,7 +167,7 @@ function Android9Plugin() {
             compositionEndSnapshot = new DomSnapshot(window, editor, {
               before: true,
             })
-            status = NONE
+            isComposing = false
             break
         }
         return false
@@ -610,9 +610,9 @@ function Android9Plugin() {
      */
     {
       name: 'default-composition-end',
-      onTrigger({ event, events, editor }) {
-        if (event.type !== 'timeout') return false
+      onTimeout({ events, editor }) {
         if (!events.find(e => e.type === 'compositionend')) return false
+        console.log({ events })
         ReactDOM.flushSync(() => {
           // Required when deleting a word and after you delete the last letter
           // in the word one by one.
@@ -621,9 +621,25 @@ function Android9Plugin() {
           // compositionStartSnapshot.applyDOM()
           console.log('text', editor.value.document.text)
         })
-        status = NONE
+        isComposing = false
         return true
       },
+      // onTrigger({ event, events, editor }) {
+      //   if (event.type !== 'timeout') return false
+      //   if (!events.find(e => e.type === 'compositionend')) return false
+      //   console.log({ events })
+      //   ReactDOM.flushSync(() => {
+      //     // Required when deleting a word and after you delete the last letter
+      //     // in the word one by one.
+      //     reconciler.addNode()
+      //     reconciler.apply(window, editor, { from: 'default-composition-end' })
+      //     // compositionStartSnapshot.applyDOM()
+      //     console.log('text', editor.value.document.text)
+      //   })
+      //   status = NONE
+      //   return true
+      // },
+
       // onFinish(events, { editor }) {
       //   const compositionEndEvent = events.find(event => {
       //     return event.type === 'compositionend'
