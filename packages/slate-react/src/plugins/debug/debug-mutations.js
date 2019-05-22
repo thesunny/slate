@@ -8,7 +8,7 @@ const debug = Debug('slate:mutations')
  * @type {Object}
  */
 
-const observeOptions = {
+const observerOptions = {
   childList: true,
   characterData: true,
   attributes: true,
@@ -71,15 +71,14 @@ function DebugMutationsPlugin({ __editor__ }) {
 
   function flush(mutations) {
     const array = Array.from(mutations).map(normalize)
-    debug(`${array.length} MutationRecord`)
     // Used `console` because `debug` was not easy to view succinctly
-    window.console.log(...array)
+    debug(...array)
   }
 
   // `findDOMNode` does not exist until later so we use `setTimeout`
   setTimeout(() => {
     const rootEl = __editor__.findDOMNode([])
-    observer.observe(rootEl, observeOptions)
+    observer.observe(rootEl, observerOptions)
   })
 }
 

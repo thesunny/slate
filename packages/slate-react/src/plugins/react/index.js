@@ -36,6 +36,7 @@ function ReactPlugin(options = {}) {
   const queriesPlugin = QueriesPlugin(options)
   const editorPropsPlugin = EditorPropsPlugin(options)
   const domPlugin = DOMPlugin({
+    ...options,
     plugins: [editorPropsPlugin, ...plugins],
   })
   const restoreDomPlugin = RestoreDOMPlugin()

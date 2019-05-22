@@ -1,5 +1,6 @@
 import { IS_ANDROID } from 'slate-dev-environment'
 import AndroidPlugin from '../android'
+import MutationPlugin from '../android/mutation'
 import AfterPlugin from './after'
 import BeforePlugin from './before'
 
@@ -18,7 +19,11 @@ function DOMPlugin(options = {}) {
   // COMPAT: Add Android specific handling separately before it gets to the
   // other plugins because it is specific (other browser don't need it) and
   // finicky (it has to come before other plugins to work).
-  const beforeBeforePlugins = IS_ANDROID ? [AndroidPlugin()] : []
+  const beforeBeforePlugins = []
+  beforeBeforePlugins.push(MutationPlugin(options))
+  if (IS_ANDROID) {
+    beforeBeforePlugins.push(AndroidPlugin())
+  }
 
   return [...beforeBeforePlugins, beforePlugin, ...plugins, afterPlugin]
 }
